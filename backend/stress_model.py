@@ -173,12 +173,118 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
         .drop(columns=["event_block_id"])
     )
 
-    aggregated["timestamp"] = aggregated["timestamp"].dt.tz_convert("UTC").dt.strftime(
-        "%Y-%m-%dT%H:%M:%S.%fZ"
+    aggregated = aggregated.sort_values(["trip_id", "timestamp"]).reset_index(drop=True)
+
+    flag_type_map = {
+        "CRITICAL_CONFLICT": "conflict_moment",
+        "HARSH_MOTION": "harsh_braking",
+        "SUSTAINED_NOISE": "audio_spike",
+    }
+
+    aggregated["flag_type"] = aggregated["Stress_Flag"].map(flag_type_map).fillna(
+        "unknown"
     )
+    aggregated = aggregated.drop(columns=["Stress_Flag"])
+
+    aggregated["driver_id"] = "DRV001"
+    
+    # Event absorption filter: remove lesser flags within 30 seconds of conflict moments
+    conflict_indices = aggregated[aggregated["flag_type"] == "conflict_moment"].index
+    rows_to_drop = []
+    
+    for conflict_idx in conflict_indices:
+        conflict_time = aggregated.loc[conflict_idx, "elapsed_sec"]
+        time_window_start = conflict_time - 30
+        time_window_end = conflict_time + 30
+        
+        # Find lesser flags within 30 seconds of this conflict moment
+        lesser_flags = aggregated[
+            (aggregated.index != conflict_idx) &
+            (aggregated["flag_type"].isin(["audio_spike", "harsh_braking"])) &
+            (aggregated["elapsed_sec"] >= time_window_start) &
+            (aggregated["elapsed_sec"] <= time_window_end)
+        ]
+        
+        rows_to_drop.extend(lesser_flags.index.tolist())
+    
+    # Drop the identified rows and reset index
+    aggregated = aggregated.drop(rows_to_drop).reset_index(drop=True)
+    
+    aggregated["flag_id"] = [
+        f"FLAG{i:03d}" for i in range(1, len(aggregated) + 1)
+    ]
+
+    motion_type = np.where(
+        aggregated["flag_type"].isin(["harsh_braking", "conflict_moment"]),
+        "harsh_braking",
+        "none",
+    )
+    audio_type = np.where(
+        aggregated["flag_type"].isin(["audio_spike", "conflict_moment"]),
+        "audio_spike",
+        "none",
+    )
+    aggregated["context"] = "Motion: " + motion_type + " | Audio: " + audio_type
+
+    motion_score = np.clip((aggregated["Horizontal_Jerk"].astype(float) - 4.0) / 4.0, 0.0, 1.0)
+    audio_score = np.clip((aggregated["Audio_Rolling_15s"].astype(float) - 85.0) / 15.0, 0.0, 1.0)
+    aggregated["motion_score"] = motion_score
+    aggregated["audio_score"] = audio_score
+    aggregated["combined_score"] = (motion_score + audio_score) / 2
+
+    aggregated["severity"] = np.select(
+        [aggregated["combined_score"] >= 6.0, aggregated["combined_score"] >= 2.0],
+        ["high", "medium"],
+        default="low",
+    )
+
+    hj = aggregated["Horizontal_Jerk"].astype(float).round(1)
+    ar = aggregated["Audio_Rolling_15s"].astype(float).round(0).astype(int)
+    aggregated["explanation"] = np.where(
+        aggregated["flag_type"].eq("conflict_moment"),
+        "Combined signal: Harsh braking (" + hj.astype(str) + " m/s^2) + sustained high audio (" + ar.astype(str) + " dB)",
+        np.where(
+            aggregated["flag_type"].eq("harsh_braking"),
+            "Harsh braking detected (" + hj.astype(str) + " m/s^2) with audio level (" + ar.astype(str) + " dB)",
+            "Sustained high audio detected (" + ar.astype(str) + " dB) during " + aggregated["audio_class"].astype(str),
+        ),
+    )
+
+    aggregated["timestamp"] = aggregated["timestamp"].dt.tz_convert("UTC").dt.strftime(
+        "%d-%m-%Y %H:%M"
+    )
+
+    aggregated = aggregated[
+        [
+            "flag_id",
+            "driver_id",
+            "trip_id",
+            "timestamp",
+            "flag_type",
+            "severity",
+            "motion_score",
+            "audio_score",
+            "combined_score",
+            "explanation",
+            "context",
+            "elapsed_sec",
+            "duration_seconds",
+            "speed_kmh",
+            "gps_lat",
+            "gps_lon",
+            "Horizontal_Jerk",
+            "Vertical_Jerk",
+            "Audio_Rolling_15s",
+            "audio_class",
+        ]
+    ]
 
     records = aggregated.to_dict(orient="records")
     OUTPUT_PATH.write_text(json.dumps(records, indent=2), encoding="utf-8")
+    
+    # Also export as CSV
+    csv_path = OUTPUT_DIR / "flagged_moments.csv"
+    aggregated.to_csv(csv_path, index=False)
 
 
 def run_stress_moment_model() -> None:
