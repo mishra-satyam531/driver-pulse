@@ -1,0 +1,72 @@
+[
+  {
+    "trip_id": "mock_trip_001",
+    "Stress_Flag": "CRITICAL_CONFLICT",
+    "timestamp": "2025-01-01T00:50:20.000000Z",
+    "elapsed_sec": 3020,
+    "speed_kmh": 55.92098268254857,
+    "gps_lat": 37.774142736269546,
+    "gps_lon": -122.4191193287921,
+    "Horizontal_Jerk": 5.332467630312775,
+    "Vertical_Jerk": 0.01733567846722117,
+    "Audio_Rolling_15s": 98.0,
+    "audio_class": "argument",
+    "duration_seconds": 1
+  },
+  {
+    "trip_id": "mock_trip_001",
+    "Stress_Flag": "HARSH_MOTION",
+    "timestamp": "2025-01-01T00:08:20.000000Z",
+    "elapsed_sec": 500,
+    "speed_kmh": 48.467262014699976,
+    "gps_lat": 37.77484800786996,
+    "gps_lon": -122.41961178072158,
+    "Horizontal_Jerk": 4.776004563999908,
+    "Vertical_Jerk": 0.3394695916934758,
+    "Audio_Rolling_15s": 66.68572654640279,
+    "audio_class": "normal",
+    "duration_seconds": 1
+  },
+  {
+    "trip_id": "mock_trip_001",
+    "Stress_Flag": "SUSTAINED_NOISE",
+    "timestamp": "2025-01-01T00:33:30.000000Z",
+    "elapsed_sec": 2010,
+    "speed_kmh": 49.86234171759362,
+    "gps_lat": 37.77378360808533,
+    "gps_lon": -122.41967055742415,
+    "Horizontal_Jerk": 0.21081149039351352,
+    "Vertical_Jerk": 0.8057365201726956,
+    "Audio_Rolling_15s": 95.0,
+    "audio_class": "argument",
+    "duration_seconds": 16
+  },
+  {
+    "trip_id": "mock_trip_001",
+    "Stress_Flag": "SUSTAINED_NOISE",
+    "timestamp": "2025-01-01T00:50:08.000000Z",
+    "elapsed_sec": 3008,
+    "speed_kmh": 49.57477371743708,
+    "gps_lat": 37.77413874675058,
+    "gps_lon": -122.41910415070114,
+    "Horizontal_Jerk": 0.35946873891623066,
+    "Vertical_Jerk": 0.7091264766813907,
+    "Audio_Rolling_15s": 98.0,
+    "audio_class": "argument",
+    "duration_seconds": 12
+  },
+  {
+    "trip_id": "mock_trip_001",
+    "Stress_Flag": "SUSTAINED_NOISE",
+    "timestamp": "2025-01-01T00:50:21.000000Z",
+    "elapsed_sec": 3021,
+    "speed_kmh": 50.02243893928714,
+    "gps_lat": 37.77415774862818,
+    "gps_lon": -122.4191302213733,
+    "Horizontal_Jerk": 0.2857560826970046,
+    "Vertical_Jerk": 0.5020659219464569,
+    "Audio_Rolling_15s": 98.0,
+    "audio_class": "argument",
+    "duration_seconds": 19
+  }
+]

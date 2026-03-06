@@ -20,10 +20,10 @@ def load_sensor_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     accel_df["timestamp"] = pd.to_datetime(
         accel_df["timestamp"], utc=True, errors="coerce"
-    )
+    ).dt.floor("s")
     audio_df["timestamp"] = pd.to_datetime(
         audio_df["timestamp"], utc=True, errors="coerce"
-    )
+    ).dt.floor("s")
 
     accel_df = accel_df.dropna(subset=["timestamp"])
     audio_df = audio_df.dropna(subset=["timestamp"])
@@ -55,11 +55,14 @@ def compute_audio_metrics(audio_df: pd.DataFrame) -> pd.DataFrame:
 
     df["audio_level_clipped"] = df["audio_level"].clip(lower=30, upper=120)
 
-    df["Audio_Rolling_15s"] = (
-        df.groupby("trip_id", group_keys=False)
-        .rolling("15s", on="timestamp")["audio_level_clipped"]
+    # Use groupby + time-based rolling on a MultiIndex, then align by position.
+    rolled = (
+        df.set_index("timestamp")
+        .groupby("trip_id")["audio_level_clipped"]
+        .rolling("15s")
         .mean()
     )
+    df["Audio_Rolling_15s"] = rolled.values
 
     return df
 
@@ -111,6 +114,7 @@ def apply_stress_rules(fused_df: pd.DataFrame) -> pd.DataFrame:
         "gps_lat",
         "gps_lon",
         "Horizontal_Jerk",
+        "Vertical_Jerk",
         "Audio_Rolling_15s",
         "audio_class",
         "Stress_Flag",
@@ -128,12 +132,52 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
 
     df = flagged_df.copy()
 
-    if not np.issubdtype(df["timestamp"].dtype, np.datetime64):
+    # Normalize timestamp to timezone-aware datetime before formatting.
+    if not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
 
-    df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    df = df.dropna(subset=["timestamp", "Stress_Flag"]).copy()
+    df = df.sort_values(["trip_id", "timestamp"]).reset_index(drop=True)
 
-    records = df.to_dict(orient="records")
+    # Collapse consecutive rows with the same Stress_Flag into event blocks.
+    prev_trip = df["trip_id"].shift()
+    prev_flag = df["Stress_Flag"].shift()
+    prev_ts = df["timestamp"].shift()
+
+    trip_change = df["trip_id"].ne(prev_trip)
+    flag_change = df["Stress_Flag"].ne(prev_flag)
+    time_gap = (df["timestamp"] - prev_ts).gt(pd.Timedelta(seconds=1))
+
+    event_start = trip_change | flag_change | time_gap
+    df["event_block_id"] = event_start.cumsum()
+
+    def _duration_seconds(ts: pd.Series) -> int:
+        t0 = ts.iloc[0]
+        t1 = ts.iloc[-1]
+        return int((t1 - t0).total_seconds()) + 1
+
+    aggregated = (
+        df.groupby(["trip_id", "Stress_Flag", "event_block_id"], as_index=False)
+        .agg(
+            timestamp=("timestamp", "first"),
+            elapsed_sec=("elapsed_sec", "first"),
+            speed_kmh=("speed_kmh", "first"),
+            gps_lat=("gps_lat", "first"),
+            gps_lon=("gps_lon", "first"),
+            Horizontal_Jerk=("Horizontal_Jerk", "max"),
+            Vertical_Jerk=("Vertical_Jerk", "max"),
+            Audio_Rolling_15s=("Audio_Rolling_15s", "max"),
+            audio_class=("audio_class", "first"),
+            duration_seconds=("timestamp", _duration_seconds),
+        )
+        .drop(columns=["event_block_id"])
+    )
+
+    aggregated["timestamp"] = aggregated["timestamp"].dt.tz_convert("UTC").dt.strftime(
+        "%Y-%m-%dT%H:%M:%S.%fZ"
+    )
+
+    records = aggregated.to_dict(orient="records")
     OUTPUT_PATH.write_text(json.dumps(records, indent=2), encoding="utf-8")
 
 
