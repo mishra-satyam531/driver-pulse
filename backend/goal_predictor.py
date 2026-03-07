@@ -1,31 +1,6 @@
 """
-goal_predictor.py  –  Person 2: Earnings & Forecasting Lead
-=============================================================
-Chapter 2 of the earnings story that begins in earnings_velocity.py.
-
-earnings_velocity.py answers: "How fast is she going right now?"
-goal_predictor.py  answers:   "Based on that pace — will she make it?"
-
-The velocity engine gives us a rule-based snapshot at each moment in time.
-This module lifts that snapshot into a learning system: a Random Forest
-trained on historical driver goal data that learns which combinations of
-pace, progress, and driver profile actually predict success or struggle.
-
-The result is two layers of intelligence on every log event:
-  • rule_forecast   — deterministic, always explainable, no black box
-  • ml_forecast     — probabilistic, catches non-linear patterns the rules miss
-  • ml_confidence   — a score the dashboard can use to show certainty
-
-Why Random Forest and not something heavier?
-  ~210 labelled rows in driver_goals.csv — deep learning would overfit badly.
-  RF with max_depth=6 gives honest generalisation, fast training (< 1s),
-  and per-class probability scores out of the box — exactly what a
-  real-time confidence meter needs.
-
-Outputs → data/processed_outputs/
-  goal_predictions_output.json  — velocity log enriched with ML layer
-  models/goal_model.pkl         — trained classifier (reproducible)
-  models/goal_label_encoder.pkl — label mapping
+goal_predictor.py
+ML forecasting model for driver goal achievement.
 """
 
 from __future__ import annotations
@@ -41,9 +16,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import LabelEncoder
 
-
-# ── Paths ─────────────────────────────────────────────────────────────────────
-BASE_DIR     = Path(__file__).resolve().parents[1]   # repo root
+# Paths
+BASE_DIR     = Path(__file__).resolve().parents[1]
 DATA_DIR     = BASE_DIR / "data"
 OUTPUT_DIR   = DATA_DIR / "processed_outputs"
 MODEL_DIR    = OUTPUT_DIR / "models"
@@ -54,41 +28,27 @@ OUTPUT_PATH  = OUTPUT_DIR / "goal_predictions_output.json"
 EARNINGS_DIR = DATA_DIR / "earnings"
 DRIVERS_PATH = DATA_DIR / "drivers" / "drivers.csv"
 
-# ── Features the model learns from ───────────────────────────────────────────
-# These mirror the signals available in real time during a shift.
-# velocity_ratio and pct_earned are the strongest predictors (top-3 CV).
+# Features mapped to corresponding signal attributes
 FEATURE_COLS = [
-    "pct_earned",         # how far through the earnings goal (0 → 1)
-    "pct_time_used",      # how far through the shift window (0 → 1)
-    "velocity_ratio",     # actual pace ÷ ideal pace  (>1 means ahead)
-    "earnings_velocity",  # raw earnings per hour at this moment
-    "hours_remaining",    # absolute time left in shift
-    "experience_months",  # driver tenure — veteran drivers pace differently
-    "rating",             # star rating — proxy for demand / trip acceptance
+    "pct_earned",         # progress toward goal (0 to 1)
+    "pct_time_used",      # fraction of shift elapsed (0 to 1)
+    "velocity_ratio",     # actual pace / ideal pace (>1 = ahead)
+    "earnings_velocity",  # raw earnings/hr
+    "hours_remaining",    # time left in hours
+    "experience_months",  # driver tenure
+    "rating",             # driver star rating
 ]
 
 VALID_LABELS = {"ahead", "on_track", "at_risk"}
 
-
-# ── Step 1: Load ──────────────────────────────────────────────────────────────
-
+# Data loading
 def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     goals   = pd.read_csv(EARNINGS_DIR / "driver_goals.csv")
     drivers = pd.read_csv(DRIVERS_PATH)
     return goals, drivers
 
-
-# ── Step 2: Feature engineering ───────────────────────────────────────────────
-
+# Feature engineering
 def build_features(goals: pd.DataFrame, drivers: pd.DataFrame) -> pd.DataFrame:
-    """
-    Turn raw goal records into an ML-ready feature matrix.
-
-    Each row in driver_goals.csv is a snapshot of one driver mid-shift.
-    We compute ratio features so the model generalises across different
-    earning targets and shift lengths — a driver at 50% of a ₹2000 goal
-    and a driver at 50% of a ₹1000 goal are in structurally the same position.
-    """
     df = goals.merge(
         drivers[["driver_id", "experience_months", "rating"]],
         on="driver_id", how="left",
@@ -100,21 +60,13 @@ def build_features(goals: pd.DataFrame, drivers: pd.DataFrame) -> pd.DataFrame:
     df["velocity_ratio"]  = df["earnings_velocity"] / (ideal_velocity + 1e-5)
     df["hours_remaining"] = df["target_hours"] - df["current_hours"]
 
+    # Drop rows without a labelled outcome
     df = df[df["goal_completion_forecast"].isin(VALID_LABELS)].copy()
     df[FEATURE_COLS] = df[FEATURE_COLS].fillna(0)
     return df
 
-
-# ── Step 3: Train ─────────────────────────────────────────────────────────────
-
+# Training
 def train_model(goals: pd.DataFrame, drivers: pd.DataFrame) -> tuple:
-    """
-    Train a Random Forest classifier on historical goal snapshots.
-
-    5-fold stratified cross-validation gives an honest F1 estimate before
-    the final model is fit on all available data.  The balanced class_weight
-    ensures the minority labels (on_track) aren't ignored during training.
-    """
     df = build_features(goals, drivers)
     X  = df[FEATURE_COLS].values
     le = LabelEncoder()
@@ -130,10 +82,10 @@ def train_model(goals: pd.DataFrame, drivers: pd.DataFrame) -> tuple:
         n_jobs=-1,
     )
 
-    # 5-fold stratified cross-validation
+    # 5-fold stratified CV
     cv    = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     cv_f1 = cross_val_score(model, X, y, cv=cv, scoring="f1_weighted")
-    print(f"  CV F1 (weighted): {cv_f1.mean():.3f} ± {cv_f1.std():.3f}")
+    print(f"  CV F1 (weighted): {cv_f1.mean():.3f} +/- {cv_f1.std():.3f}")
 
     model.fit(X, y)
 
@@ -147,25 +99,20 @@ def train_model(goals: pd.DataFrame, drivers: pd.DataFrame) -> tuple:
 
     return model, le, float(cv_f1.mean())
 
-
-# ── Save / load ───────────────────────────────────────────────────────────────
-
+# Save and load
 def save_model(model, encoder) -> None:
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(model,   MODEL_PATH)
     joblib.dump(encoder, ENCODER_PATH)
-    print(f"  Model   → {MODEL_PATH}")
-    print(f"  Encoder → {ENCODER_PATH}")
-
+    print(f"  Model   -> {MODEL_PATH}")
+    print(f"  Encoder -> {ENCODER_PATH}")
 
 def load_model() -> tuple:
     if not MODEL_PATH.exists() or not ENCODER_PATH.exists():
         raise FileNotFoundError("Trained model not found. Run goal_predictor.py first.")
     return joblib.load(MODEL_PATH), joblib.load(ENCODER_PATH)
 
-
-# ── Step 4: Apply ML layer to velocity log ────────────────────────────────────
-
+# Inference on velocity log
 def predict_from_velocity_df(
     model,
     encoder,
@@ -173,17 +120,6 @@ def predict_from_velocity_df(
     goals: pd.DataFrame,
     drivers: pd.DataFrame,
 ) -> pd.DataFrame:
-    """
-    This is where the two chapters meet.
-
-    The velocity log from earnings_velocity.py gives us rule-based forecasts
-    for every moment.  Here we reconstruct the same feature set on each log
-    row and overlay the ML model's judgment — giving every event both a
-    deterministic label and a probabilistic confidence score.
-
-    Rows still in "insufficient_data" or "achieved" state are left untouched;
-    the model only speaks when there is enough signal to work with.
-    """
     df = velocity_df.copy()
 
     primary_goals = goals.drop_duplicates(subset="driver_id", keep="first")
@@ -193,15 +129,15 @@ def predict_from_velocity_df(
         on="driver_id", how="left", suffixes=("", "_drv"),
     )
 
-    target_hours         = df["target_hours"].fillna(8.0)
-    ideal_v              = df["target_earnings"] / (target_hours + 1e-5)
-    df["pct_earned"]     = df["cumulative_earnings"] / (df["target_earnings"] + 1e-5)
-    df["pct_time_used"]  = df["elapsed_hours"] / (target_hours + 1e-5)
-    df["velocity_ratio"] = df["current_velocity"].fillna(0) / (ideal_v + 1e-5)
-    df["earnings_velocity"] = df["current_velocity"].fillna(0)
-    df["hours_remaining"]   = (target_hours - df["elapsed_hours"]).clip(lower=0)
+    target_hours          = df["target_hours"].fillna(8.0)
+    ideal_v               = df["target_earnings"] / (target_hours + 1e-5)
+    df["pct_earned"]      = df["cumulative_earnings"] / (df["target_earnings"] + 1e-5)
+    df["pct_time_used"]   = df["elapsed_hours"] / (target_hours + 1e-5)
+    df["velocity_ratio"]  = df["current_velocity"].fillna(0) / (ideal_v + 1e-5)
+    df["earnings_velocity"]  = df["current_velocity"].fillna(0)
+    df["hours_remaining"] = (target_hours - df["elapsed_hours"]).clip(lower=0)
 
-    # Only score rows that have a meaningful rule-based label
+    # Only score eligible rows
     eligible = df["forecast_status"].isin(VALID_LABELS)
     X = df.loc[eligible, FEATURE_COLS].fillna(0).values
 
@@ -219,9 +155,7 @@ def predict_from_velocity_df(
     df.drop(columns=[c for c in tmp if c in df.columns], inplace=True)
     return df
 
-
-# ── Dashboard helper: single-driver inference ─────────────────────────────────
-
+# Dashboard: single-driver inference
 def predict_single(
     model,
     encoder,
@@ -233,13 +167,6 @@ def predict_single(
     experience_months: float = 24,
     rating: float = 4.7,
 ) -> dict:
-    """
-    Instant forecast for one driver at one moment — designed for the dashboard.
-
-    Returns a dict with the forecast label, overall confidence, and the full
-    probability breakdown across all three classes so the UI can render a
-    confidence bar or a traffic-light indicator.
-    """
     x     = np.array([[pct_earned, pct_time_used, velocity_ratio,
                         earnings_velocity, hours_remaining,
                         experience_months, rating]])
@@ -255,9 +182,7 @@ def predict_single(
         },
     }
 
-
-# ── Step 5: Export ────────────────────────────────────────────────────────────
-
+# Export
 def export_predictions(df: pd.DataFrame) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -276,36 +201,28 @@ def export_predictions(df: pd.DataFrame) -> None:
         json.dumps(out.to_dict(orient="records"), indent=2, default=str),
         encoding="utf-8",
     )
-    print(f"  Goal predictions → {OUTPUT_PATH}")
+    print(f"  Goal predictions -> {OUTPUT_PATH}")
 
-
-# ── Entrypoint ────────────────────────────────────────────────────────────────
-
+# Entrypoint
 def run_goal_predictor_model() -> None:
-    """
-    Full Person 2 pipeline — runs both chapters end to end:
-      earnings_velocity  →  velocity_df  (rule-based, real-time)
-      goal_predictor     →  enriched     (ML layer on top)
-    """
     from backend.earnings_velocity import run_earnings_velocity_model
 
-    print("Step 1 — Earnings velocity engine ...")
+    print("Step 1 - Earnings velocity engine ...")
     velocity_df = run_earnings_velocity_model()
 
-    print("\nStep 2 — Goal-completion model (training) ...")
+    print("\nStep 2 - Training goal-completion model ...")
     goals, drivers = load_data()
     model, encoder, cv_f1 = train_model(goals, drivers)
     save_model(model, encoder)
 
-    print("\nStep 3 — Applying ML predictions to velocity log ...")
+    print("\nStep 3 - Applying ML predictions ...")
     enriched = predict_from_velocity_df(model, encoder, velocity_df, goals, drivers)
     export_predictions(enriched)
 
     if not enriched.empty:
-        print(f"\n  Events scored  : {len(enriched)}")
-        print(f"  Forecast dist  :\n{enriched['forecast_status'].value_counts().to_string()}")
+        print(f"\n  Events scored   : {len(enriched)}")
+        print(f"  Forecast dist   :\n{enriched['forecast_status'].value_counts().to_string()}")
     print(f"  CV F1 (weighted): {cv_f1:.3f}")
-
 
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

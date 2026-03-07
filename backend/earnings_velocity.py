@@ -1,13 +1,6 @@
 """
-earnings_velocity.py  –  Person 2: Earnings & Forecasting Lead
-================================================================
-Computes real-time earnings velocity for each driver log entry and
-produces a rule-based forecast of whether the driver will hit their
-daily earnings goal before their shift ends.
-
-Outputs (→ data/processed_outputs/):
-  earnings_velocity_output.json   – full structured velocity log
-  trip_summaries.csv              – per-driver shift summary card
+earnings_velocity.py
+Provides real-time earnings velocity features.
 """
 
 import json
@@ -16,69 +9,45 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-
-# ── Paths ─────────────────────────────────────────────────────────────────────
-BASE_DIR    = Path(__file__).resolve().parents[1]          # repo root
-DATA_DIR    = BASE_DIR / "data"
-OUTPUT_DIR  = DATA_DIR / "processed_outputs"
-OUTPUT_PATH = OUTPUT_DIR / "earnings_velocity_output.json"
+# Paths
+BASE_DIR     = Path(__file__).resolve().parents[1]
+DATA_DIR     = BASE_DIR / "data"
+OUTPUT_DIR   = DATA_DIR / "processed_outputs"
+OUTPUT_PATH  = OUTPUT_DIR / "earnings_velocity_output.json"
 SUMMARY_PATH = OUTPUT_DIR / "trip_summaries.csv"
 
-# ── Thresholds ────────────────────────────────────────────────────────────────
-COLD_START_HOURS = 0.25   # first 15 min — too noisy to forecast reliably
-AHEAD_BUFFER     = 1.05   # projected ≥ 105 % of target  →  "ahead"
+# Thresholds
+COLD_START_HOURS = 0.25   # suppress forecast for first 15 min as it is too unreliable
+AHEAD_BUFFER     = 1.05   # require 5% buffer to call "ahead"
 
-
-# ── Data loading ──────────────────────────────────────────────────────────────
-
+# Data loading
 def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     goals   = pd.read_csv(DATA_DIR / "earnings" / "driver_goals.csv")
     vel_log = pd.read_csv(DATA_DIR / "earnings" / "earnings_velocity_log.csv")
     drivers = pd.read_csv(DATA_DIR / "drivers"  / "drivers.csv")
     return goals, vel_log, drivers
 
-
-# ── Timestamp parsing ─────────────────────────────────────────────────────────
-
+# Timestamp parsing
 def parse_timestamp(ts_str: str, date_str: str) -> pd.Timestamp:
-    """
-    earnings_velocity_log.csv has two formats:
-      "07:03:00"             → time-only  → prepend the date
-      "2024-02-06 13:02:24"  → full datetime → use directly
-    """
     ts_str = str(ts_str).strip()
     if " " in ts_str or "T" in ts_str:
         return pd.to_datetime(ts_str, errors="coerce")
     return pd.to_datetime(f"{date_str} {ts_str}", errors="coerce")
 
-
-# ── Core rule-based computations ──────────────────────────────────────────────
-
+# Velocity computations
 def compute_current_velocity(earned: float, elapsed_h: float) -> float | None:
-    """
-    Earnings velocity = cumulative earnings / elapsed hours.
-
-    Cold-start problem: during the first 15 min the denominator is tiny and
-    produces an unreliable spike.  We suppress the forecast until >= 15 min
-    of data are available.
-    """
     if elapsed_h < COLD_START_HOURS:
         return None
     return round(earned / elapsed_h, 2) if elapsed_h > 0 else 0.0
 
-
 def compute_target_velocity(target: float, earned: float, remaining_h: float) -> float | None:
-    """
-    Pace the driver needs to maintain to reach goal within remaining shift time.
-    Returns 0 if already achieved, None if shift is over.
-    """
+    # None when shift is over should be treated as "missed".
     needed = target - earned
     if needed <= 0:
         return 0.0
     if remaining_h <= 0:
         return None
     return round(needed / remaining_h, 2)
-
 
 def forecast_status(
     current_v: float | None,
@@ -89,14 +58,13 @@ def forecast_status(
 ) -> str:
     """
     Rule-based forecast of goal attainment.
-
     Priority order:
-      1. earned ≥ target                           → "achieved"
-      2. elapsed < 15 min  or  velocity unknown    → "insufficient_data"
-      3. shift over, goal not met                  → "at_risk"
-      4. projected ≥ target × 1.05                → "ahead"
-      5. projected ≥ target                        → "on_track"
-      6. otherwise                                 → "at_risk"
+      1. earned >= target -> "achieved"
+      2. elapsed < 15 min or velocity unknown -> "insufficient_data"
+      3. shift over, goal not met -> "at_risk"
+      4. projected >= target * 1.05 -> "ahead"
+      5. projected >= target -> "on_track"
+      6. otherwise -> "at_risk"
     """
     if earned >= target:
         return "achieved"
@@ -112,9 +80,7 @@ def forecast_status(
         return "on_track"
     return "at_risk"
 
-
-# ── Batch processing ──────────────────────────────────────────────────────────
-
+# Batch processing
 def compute_velocity_metrics(
     goals: pd.DataFrame,
     vel_log: pd.DataFrame,
@@ -128,24 +94,15 @@ def compute_velocity_metrics(
 
     merged = (
         vel_log
-        .merge(
-            primary_goals[["driver_id", "target_earnings", "shift_end_time"]],
-            on="driver_id", how="left",
-        )
-        .merge(
-            drivers[["driver_id", "city", "experience_months", "rating"]],
-            on="driver_id", how="left",
-        )
+        .merge(primary_goals[["driver_id", "target_earnings", "shift_end_time"]], on="driver_id", how="left")
+        .merge(drivers[["driver_id", "city", "experience_months", "rating"]], on="driver_id", how="left")
     )
 
     records = []
-
     for _, row in merged.iterrows():
         date_str   = str(row.get("date", "2024-02-06"))
         current_ts = parse_timestamp(row["timestamp"], date_str)
-        shift_end  = pd.to_datetime(
-            f"{date_str} {row.get('shift_end_time', '20:00:00')}", errors="coerce"
-        )
+        shift_end  = pd.to_datetime(f"{date_str} {row.get('shift_end_time', '20:00:00')}", errors="coerce")
 
         if pd.isnull(current_ts) or pd.isnull(shift_end):
             continue
@@ -184,7 +141,7 @@ def compute_velocity_metrics(
             "projected_final_earnings": projected,
             # forecast
             "forecast_status":          status,
-            # required output schema (problem statement)
+            # output schema 
             "signal_type":              "EARNINGS",
             "raw_value":                current_v,
             "event_label":              status.upper(),
@@ -193,13 +150,11 @@ def compute_velocity_metrics(
 
     return pd.DataFrame(records)
 
-
-# ── Trip summaries (per driver shift card) ────────────────────────────────────
-
+# Trip summaries
 def build_trip_summaries(velocity_df: pd.DataFrame) -> pd.DataFrame:
     """
     Collapse the velocity log into one summary row per driver per date.
-    Produces trip_summaries.csv (mirroring the processed_outputs reference schema).
+    Produces trip_summaries.csv.
     """
     if velocity_df.empty:
         return pd.DataFrame()
@@ -223,16 +178,11 @@ def build_trip_summaries(velocity_df: pd.DataFrame) -> pd.DataFrame:
             "final_forecast":             last["forecast_status"],
         }
 
-    summaries = (
-        df.groupby(["driver_id", "date"], group_keys=False)
-        .apply(_summarise)
-        .tolist()
+    return pd.DataFrame(
+        df.groupby(["driver_id", "date"], group_keys=False).apply(_summarise).tolist()
     )
-    return pd.DataFrame(summaries)
 
-
-# ── Export ────────────────────────────────────────────────────────────────────
-
+# Export
 def export_velocity_output(df: pd.DataFrame) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     if df.empty:
@@ -242,8 +192,7 @@ def export_velocity_output(df: pd.DataFrame) -> None:
         json.dumps(df.to_dict(orient="records"), indent=2, default=str),
         encoding="utf-8",
     )
-    print(f"  Velocity log → {OUTPUT_PATH}")
-
+    print(f"  Velocity log -> {OUTPUT_PATH}")
 
 def export_trip_summaries(df: pd.DataFrame) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -251,11 +200,9 @@ def export_trip_summaries(df: pd.DataFrame) -> None:
         SUMMARY_PATH.write_text("", encoding="utf-8")
         return
     df.to_csv(SUMMARY_PATH, index=False)
-    print(f"  Trip summaries → {SUMMARY_PATH}")
+    print(f"  Trip summaries -> {SUMMARY_PATH}")
 
-
-# ── Entrypoint ────────────────────────────────────────────────────────────────
-
+# Entrypoint
 def run_earnings_velocity_model() -> pd.DataFrame:
     """
     Load data, compute velocity metrics, export outputs, return velocity DataFrame
@@ -263,9 +210,7 @@ def run_earnings_velocity_model() -> pd.DataFrame:
     """
     goals, vel_log, drivers = load_data()
     df = compute_velocity_metrics(goals, vel_log, drivers)
-
     export_velocity_output(df)
-
     summaries = build_trip_summaries(df)
     export_trip_summaries(summaries)
 
@@ -274,7 +219,6 @@ def run_earnings_velocity_model() -> pd.DataFrame:
         print(f"  Forecast distribution:\n{df['forecast_status'].value_counts().to_string()}")
 
     return df
-
 
 if __name__ == "__main__":
     run_earnings_velocity_model()
