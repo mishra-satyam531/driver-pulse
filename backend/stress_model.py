@@ -227,15 +227,21 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
         f"FLAG{i:03d}" for i in range(1, len(aggregated) + 1)
     ]
 
-    motion_type = np.where(
-        aggregated["flag_type"].isin(["harsh_braking", "conflict_moment"]),
-        "harsh_braking",
-        "none",
+    motion_type = pd.Series(
+        np.where(
+            aggregated["flag_type"].isin(["harsh_braking", "conflict_moment"]),
+            "harsh_braking",
+            "none",
+        ),
+        dtype=str,
     )
-    audio_type = np.where(
-        aggregated["flag_type"].isin(["audio_spike", "conflict_moment"]),
-        "audio_spike",
-        "none",
+    audio_type = pd.Series(
+        np.where(
+            aggregated["flag_type"].isin(["audio_spike", "conflict_moment"]),
+            "audio_spike",
+            "none",
+        ),
+        dtype=str,
     )
     aggregated["context"] = "Motion: " + motion_type + " | Audio: " + audio_type
 

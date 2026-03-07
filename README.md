@@ -1,191 +1,294 @@
-Driver Pulse: Team [Your Team Name]
-- Demo Video: [Insert Unlisted YouTube or open Google Drive URL here]
-- Live Application: [Insert Streamlit / cloud deployment URL here]
-- (Optional) Judge Login Credentials: Username: judge@uber.com \| Password: hackathon2026
-- Note to Judges: [Insert spin-up warning here, e.g., "The app may take 30–60 seconds to start on free-tier hosting."]
+# Driver Pulse
+
+## Demo & Deployment
+- **Demo Video:** [Insert Unlisted YouTube or Google Drive URL]
+- **Live Application:** [Insert Streamlit / Cloud deployment URL]
+
+**Optional Judge Login**
+- Username: judge@uber.com  
+- Password: hackathon2026
+
+**Note to Judges:**  
+The application may take **30–60 seconds to start** on free-tier hosting.
 
 ---
 
-## Overview
+# Overview
 
-This repository contains the **Driver Pulse engine and dashboard** for the Uber Driver Pulse hackathon.
-Your teammates' model ingests raw accelerometer and audio intensity data, applies heuristics to detect stressful driving moments, and generates transparent logs of flagged events and earnings velocity.
-This web app surfaces those insights in a **driver-facing, glanceable dashboard** that lets judges trace every UI element back to a structured output record.
+This repository contains the **Driver Pulse system** built for the Uber Driver Pulse Hackathon.
 
-The project is organized into three main layers:
-- **Data & Models** (`backend/`, `utils/`, `data/`): Scripts to seed mock telematics, detect stress moments, and generate natural-language insights.
-- **Processed Outputs** (`data/processed_outputs/`, `data/earnings/`): CSV/JSON logs of flagged moments and earnings velocity.
-- **Driver Dashboard** (`app/driver_pulse_app.py`): Streamlit-based web UI that visualizes stress flags and earnings goals for each driver.
+The project combines:
 
-Judges should be able to understand what your system does within a few minutes of using the dashboard or watching the demo video.
+- Driver stress detection from telemetry
+- Real-time earnings velocity analysis
+- Machine learning goal prediction
+- GenAI-generated driver insights
+- A Streamlit dashboard to visualize everything
 
----
+The system analyzes **accelerometer data, audio intensity, and earnings logs** to identify stressful driving moments and determine whether a driver is on track to meet their earnings goal.
 
-## Live Deployment
-
-Once deployed, a judge should be able to:
-1. Open the **Live Application** link above.
-2. Select a driver and trip.
-3. See **flagged stress moments** on a timeline and in a structured table.
-4. Inspect **earnings velocity** versus goal and whether the driver is ahead, on track, or at risk.
-
-Recommended hosting options (per hackathon brief):
-- **Streamlit Community Cloud / Hugging Face Spaces** for this Python dashboard.
-- Alternatively: any public cloud host that can run `streamlit run app/driver_pulse_app.py`.
-
-If your deployment may sleep on free tiers, add a short note at the top of this README (for example, "The Render backend may take ~60 seconds to wake up").
+The **frontend dashboard displays these insights in a glanceable format** so drivers (and judges) can quickly understand their performance.
 
 ---
 
-## Local Setup Instructions
+# System Architecture
 
-### Prerequisites
+The architecture follows a **decoupled backend + lightweight frontend design**.
 
-- Python 3.10+ installed.
-- `pip` package manager.
-- (Optional) A virtual environment tool such as `venv` or `conda`.
+## Core Components
 
-### 1. Clone the Repository
+### 1. Safety & Stress Engine
+Analyzes **vehicle motion and cabin audio levels** to detect stressful events.
 
-```bash
-git clone <your-repo-url>.git
-cd driver-pulse
-```
+Key signals:
+- Horizontal jerk
+- Sudden braking
+- Loud cabin noise
 
-### 2. Create and Activate a Virtual Environment (Recommended)
-
-```bash
-python -m venv .venv
-.\.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # macOS / Linux
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Generate or Refresh Mock Data (Optional)
-
-If you want to regenerate the mock telematics data locally:
-
-```bash
-python utils/seed_stress_data.py
-python backend/stress_model.py
-python backend/driver_insights.py  # Requires OPENAI_API_KEY / GROQ key if you want fresh LLM insights
-```
-
-This pipeline will:
-- Produce synthetic accelerometer and audio streams.
-- Run the stress detection rules to create `data/processed_outputs/flagged_moments.csv` and `.json`.
-- Use the LLM helper to add empathetic one-line insights per medium/high event in `trip_insights_final.json`.
-
-### 5. Run the Driver Pulse Dashboard Locally
-
-```bash
-streamlit run app/driver_pulse_app.py
-```
-
-Then open the URL shown in your terminal (by default, `http://localhost:8501`).
+Outputs structured logs of flagged stress events.
 
 ---
 
-## App Walkthrough
+### 2. Earnings Velocity Engine
+Calculates **real-time earnings pace (₹/hr)** during a shift.
 
-The Streamlit app organizes the experience into four tabs:
+Handles edge cases such as:
 
-- **Trip Overview**  
-  High-level table of trips with:
-  - First/last timestamp.
-  - Number of flagged events.
-  - Count of high-severity flags.
-  - Maximum combined stress score.
+- Cold start periods
+- Shift end detection
+- Low-data velocity noise
 
-- **Flagged Moments**  
-  For a selected driver and trip, this tab shows:
-  - A bar chart of **combined stress score** over time.
-  - A structured table with:
-    - `timestamp`, `flag_type`, `severity`, `motion_score`, `audio_score`, `combined_score`.
-    - `explanation` and `context` (extracted from model output).
-    - (If available) `llm_insight` – a one-line, empathetic, driver-facing explanation.
-  Severity cells are color-coded (green / amber / red) to pass the "glanceable" test.
-
-- **Earnings & Goals**  
-  Uses `data/earnings/earnings_velocity_log.csv` and `data/earnings/driver_goals.csv` to show:
-  - Current cumulative earnings and earnings velocity.
-  - Target velocity to hit the driver’s goal by the end of the shift.
-  - `velocity_delta` and `forecast_status` (ahead / on_track / at_risk).
-  - A time-series chart of cumulative earnings and velocity vs target.
-
-- **How this works**  
-  A concise explanation of how the engine fuses motion, audio, and earnings data into driver-facing insights.
+Outputs driver earnings velocity metrics.
 
 ---
 
-## Trade-offs & Assumptions
+### 3. ML Goal Predictor
+A **Random Forest model** predicts whether a driver will reach their daily earnings goal.
 
-- **Precomputed pipeline over real-time streaming**  
-  For hackathon simplicity and reliability, the dashboard reads from **precomputed CSV/JSON outputs** produced by the stress detection scripts.
-  This avoids running heavy models on every UI interaction and keeps the system easy to demo and deploy.
+Inputs include:
+- Driver rating
+- Experience level
+- Earnings velocity
+- Remaining shift time
 
-- **Single-trip mock telematics**  
-  The provided synthetic telematics focuses on a single `mock_trip_001` with carefully constructed edge cases (harsh braking, cabin arguments, false positives).
-  This lets us demonstrate nuanced behavior (like vetoing potholes and sirens) without requiring hours of raw data.
-
-- **Rule-based stress detection**  
-  The core engine uses engineered features (jerk, rolling audio windows) and threshold rules instead of a black-box deep learning model.
-  This is intentional for **explainability**: every flag can be traced back to clear thresholds and metrics.
-
-- **LLM insights as a thin layer**  
-  The optional LLM layer in `backend/driver_insights.py` never decides whether an event is stressed or not.
-  It only translates already-flagged events into short, empathetic sentences for the driver.
-
-Add any additional assumptions you and your teammates made about the data (for example, units, sampling rates, or decisions to ignore certain edge cases).
+Outputs:
+- Forecast status (`ahead`, `on_track`, `at_risk`)
+- ML confidence score
 
 ---
 
-## Project Structure
+### 4. LLM Insights Engine
+Uses **GenAI (Llama 3 via Groq)** to convert raw system outputs into **driver-friendly insights**.
 
-```text
+Example:
+
+Instead of:
+
+Jerk > 4.0 detected
+
+
+Driver sees:
+
+> “We noticed a sudden stop earlier. Take it easy — smooth driving keeps trips comfortable.”
+
+The LLM layer **does not decide events**, it only **translates them into supportive feedback**.
+
+---
+
+### 5. Driver Dashboard
+A **Streamlit web application** that visualizes:
+
+- Stress events
+- Trip summaries
+- Earnings velocity
+- Goal predictions
+- AI insights
+
+The frontend **does not run ML models** — it simply reads **structured outputs from the backend**.
+
+---
+
+# Project Structure
+
+
 backend/
-  stress_model.py        # Ingests sensor CSVs, computes features, and exports flagged_moments.csv/json
-  driver_insights.py     # Adds short LLM-generated insights per stress event
+stress_model.py
+earnings_velocity.py
+goal_predictor.py
+driver_insights.py
+earnings_insights.py
 
 utils/
-  seed_stress_data.py    # Generates a synthetic telematics dataset for local testing
+seed_stress_data.py
 
 data/
-  sensor_data/           # Raw accelerometer and audio intensity CSVs
-  processed_outputs/     # Model outputs (flagged_moments.csv/json, trip_insights_final.json)
-  earnings/              # Earnings velocity and goal CSVs
-  drivers/               # Driver metadata (names, IDs, etc.)
+sensor_data/
+processed_outputs/
+earnings/
+drivers/
 
 app/
-  driver_pulse_app.py    # Streamlit dashboard used for the live web demo
+driver_pulse_app.py
 
-README.md                # This file (engineering handoff & submission map)
-design_doc.md            # Detailed product & algorithm design
-progress_log.md          # Development history log for judges
-requirements.txt         # Python dependencies (including Streamlit)
-```
+README.md
+design_doc.md
+progress_log.md
+requirements.txt
+
 
 ---
 
-## Next Steps for the Team
+# Backend Pipelines
 
-- **You / Web dev**  
-  - Wire in any additional outputs from the ML team (e.g., per-trip stress scores, new event types).
-  - Polish the visual design and labels to match the story in your demo video.
+## Stress Detection
 
-- **ML teammates**  
-  - Fine-tune thresholds and features in `backend/stress_model.py`.
-  - Extend earnings velocity logic or add new goal types if desired.
+Run:
 
-- **For demo & submission**  
-  - Record a 2–3 minute walkthrough following the hackathon video script:
-    - 0:00–0:30 – Architecture and approach.
-    - 0:30–2:00 – Live UI walkthrough (flagged events + earnings).
-    - 2:00–3:00 – Under the hood (point directly to the CSV/JSON logs).
-  - Paste the video and deployment URLs into the header of this README before submission.
 
+python backend/stress_model.py
+
+
+Output:
+
+
+data/processed_outputs/flagged_moments.json
+data/processed_outputs/stress_analysis_output.json
+
+
+---
+
+## Earnings Velocity
+
+Run:
+
+
+python backend/earnings_velocity.py
+
+
+Output:
+
+
+data/processed_outputs/earnings_velocity_output.json
+data/processed_outputs/trip_summaries.csv
+
+
+---
+
+## ML Goal Predictor
+
+Run:
+
+
+python backend/goal_predictor.py
+
+
+This script automatically:
+
+- Trains a Random Forest model
+- Saves `goal_model.pkl`
+- Saves `goal_label_encoder.pkl`
+
+Outputs:
+
+
+goal_predictions_output.json
+
+
+---
+
+## Safety LLM Insights
+
+Run:
+
+
+python backend/driver_insights.py
+
+
+Output:
+
+
+trip_insights_final.json
+
+
+---
+
+## Earnings Coaching Insights
+
+Run:
+
+
+python backend/earnings_insights.py
+
+
+Output:
+
+
+earnings_insights_final.json
+
+
+---
+
+# Running the Dashboard
+
+Start the frontend:
+
+
+streamlit run app/driver_pulse_app.py
+
+
+Open in browser:
+
+
+http://localhost:8501
+
+
+---
+
+# Trade-offs & Assumptions
+
+### Precomputed Outputs
+The dashboard reads **pre-generated CSV/JSON logs** instead of running models in real time.
+
+This ensures:
+- Faster UI
+- Simpler deployment
+- Reliable hackathon demos
+
+---
+
+### Rule-Based Stress Detection
+Stress detection uses **deterministic physics rules** rather than deep learning for:
+- Explainability
+- Debuggability
+- Traceable thresholds
+
+---
+
+### Synthetic Dataset
+Mock telematics data simulates scenarios such as:
+- Harsh braking
+- Loud cabin arguments
+- False positives (potholes, sirens)
+
+This helps demonstrate edge-case handling.
+
+---
+
+# Next Steps
+
+### Frontend
+- Improve dashboard design
+- Add additional charts
+- Improve mobile responsiveness
+
+### ML Team
+- Tune thresholds in stress detection
+- Improve goal prediction accuracy
+- Add new behavioral features
+
+### Demo Preparation
+Record a **2–3 minute walkthrough video**:
+
+0:00–0:30 – Architecture overview  
+0:30–2:00 – Live dashboard walkthrough  
+2:00–3:00 – Explain backend outputs and models
