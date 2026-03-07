@@ -19,7 +19,8 @@
     "Horizontal_Jerk": 6.0,
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 73.0,
-    "audio_class": "normal"
+    "audio_class": "normal",
+    "llm_insight": "Taylor, a sudden stop was detected with a deceleration force of 6.0 m/s^2."
   },
   {
     "flag_id": "FLAG002",
@@ -41,6 +42,7 @@
     "Horizontal_Jerk": 7.0,
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 87.73333333333333,
-    "audio_class": "argument"
+    "audio_class": "argument",
+    "llm_insight": "Taylor, you experienced a sudden stop with harsh braking at 7.0 m/s^2, and there was sustained high audio present."
   }
 ]

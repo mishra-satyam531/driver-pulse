@@ -15,8 +15,21 @@ OUTPUT_PATH = OUTPUT_DIR / "flagged_moments.json"
 
 
 def load_sensor_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
-    accel_df = pd.read_csv(ACCEL_PATH)
-    audio_df = pd.read_csv(AUDIO_PATH)
+    """Load sensor data from CSV files with error handling."""
+    # Check if files exist
+    if not ACCEL_PATH.exists() or not AUDIO_PATH.exists():
+        print("Error: Please ensure sensor CSV files exist in the data/sensor_data/ directory.")
+        print(f"Expected files:")
+        print(f"  - {ACCEL_PATH}")
+        print(f"  - {AUDIO_PATH}")
+        raise FileNotFoundError("Sensor data files not found")
+    
+    try:
+        accel_df = pd.read_csv(ACCEL_PATH)
+        audio_df = pd.read_csv(AUDIO_PATH)
+    except Exception as e:
+        print(f"Error reading sensor CSV files: {e}")
+        raise
 
     accel_df["timestamp"] = pd.to_datetime(
         accel_df["timestamp"], utc=True, errors="coerce"
@@ -188,16 +201,16 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
 
     aggregated["driver_id"] = "DRV001"
     
-    # Event absorption filter: remove lesser flags within 30 seconds of conflict moments
+    # Event absorption filter: remove lesser flags within 15 seconds of conflict moments
     conflict_indices = aggregated[aggregated["flag_type"] == "conflict_moment"].index
     rows_to_drop = []
     
     for conflict_idx in conflict_indices:
         conflict_time = aggregated.loc[conflict_idx, "elapsed_sec"]
-        time_window_start = conflict_time - 30
-        time_window_end = conflict_time + 30
+        time_window_start = conflict_time - 15
+        time_window_end = conflict_time + 15
         
-        # Find lesser flags within 30 seconds of this conflict moment
+        # Find lesser flags within 15 seconds of this conflict moment
         lesser_flags = aggregated[
             (aggregated.index != conflict_idx) &
             (aggregated["flag_type"].isin(["audio_spike", "harsh_braking"])) &
@@ -226,14 +239,14 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
     )
     aggregated["context"] = "Motion: " + motion_type + " | Audio: " + audio_type
 
-    motion_score = np.clip((aggregated["Horizontal_Jerk"].astype(float) - 4.0) / 4.0, 0.0, 1.0)
-    audio_score = np.clip((aggregated["Audio_Rolling_15s"].astype(float) - 85.0) / 15.0, 0.0, 1.0)
+    motion_score = np.clip((aggregated["Horizontal_Jerk"].astype(float) - 4.0) / 4.0, 0.0, 1.0).round(2)
+    audio_score = np.clip((aggregated["Audio_Rolling_15s"].astype(float) - 85.0) / 15.0, 0.0, 1.0).round(2)
     aggregated["motion_score"] = motion_score
     aggregated["audio_score"] = audio_score
-    aggregated["combined_score"] = (motion_score + audio_score) / 2
+    aggregated["combined_score"] = np.maximum(motion_score, audio_score).round(2)
 
     aggregated["severity"] = np.select(
-        [aggregated["combined_score"] >= 6.0, aggregated["combined_score"] >= 2.0],
+        [aggregated["combined_score"] >= 0.7, aggregated["combined_score"] >= 0.4],
         ["high", "medium"],
         default="low",
     )
@@ -288,6 +301,11 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
 
 
 def run_stress_moment_model() -> None:
+    """Main execution function: load sensor data, process stress events, and export results.
+    
+    This function assumes sensor CSV files already exist in data/sensor_data/ directory.
+    To generate initial data, run seed_stress_data.py separately.
+    """
     accel_df, audio_df = load_sensor_data()
     accel_metrics = compute_motion_metrics(accel_df)
     audio_metrics = compute_audio_metrics(audio_df)

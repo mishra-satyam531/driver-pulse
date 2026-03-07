@@ -63,6 +63,12 @@ def generate_mock_telematics_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     audio_level[idx_event5] = 98.0
     audio_class[idx_event5] = "argument"
 
+    # Event 6 (Test Case: Extreme Brake, Quiet Cabin): at second 3500
+    idx_event6 = elapsed_seconds == 3500
+    accel_y[idx_event6] = 6.0  # Creates a massive 6.0 m/s^2 horizontal jerk
+    audio_level[idx_event6] = 65.0  # Normal quiet cabin noise
+    audio_class[idx_event6] = "normal"
+
     # Midpoint harsh brake inside Total Chaos: exactly at 3020
     idx_event5_brake = elapsed_seconds == 3020
     accel_y[idx_event5_brake] = 5.5
