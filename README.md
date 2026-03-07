@@ -1,78 +1,294 @@
-# Driver Pulse: Backend Architecture
+# Driver Pulse
 
-This repository contains the backend data processing pipelines for the Driver Pulse system. The architecture is designed as a set of decoupled Python microservices that process raw telemetry and earnings logs, outputting structured data for the Frontend App to consume.
+## Demo & Deployment
+- **Demo Video:** [Insert Unlisted YouTube or Google Drive URL]
+- **Live Application:** [Insert Streamlit / Cloud deployment URL]
 
-## System Architecture
+**Optional Judge Login**
+- Username: judge@uber.com  
+- Password: hackathon2026
 
-The system utilizes a **decoupled, feature-driven architecture** to allow independent development and deployment across the stack:
-
-1. **Safety & Stress Engine:** Uses deterministic physics and audio thresholds to flag critical driver stress events.
-2. **Earnings & Forecasting Engine:** Uses a hybrid approach (real-time math rules + Machine Learning) to predict if a driver will hit their daily earning target.
-3. **LLM Insights Engine:** Translates raw safety warnings into supportive, personalized feedback for drivers using GenAI.
-4. **Frontend App (Driver Dashboard):** A standalone application that simply reads from the `processed_outputs` folder to render traffic lights, stress warnings, and confidence bars.
-
-This separation of concerns ensures the frontend does not need to compute ML or physics—it requires only API-like JSON files.
+**Note to Judges:**  
+The application may take **30–60 seconds to start** on free-tier hosting.
 
 ---
 
-## Core Backend Modules
+# Overview
 
-### 1. `backend/earnings_velocity.py` (Rule-Based Pace Engine)
-Transforms raw shift logs into a real-time pace signal (₹/hr). 
-* **The "Why":** Instead of showing drivers their earnings only at the end of the day, a running velocity is calculated. It handles critical edge cases like "cold starts" (suppressing unreliable velocity in the first 15 mins) and shift-end cutoffs.
-* **Output:** `earnings_velocity_output.json` & `trip_summaries.csv`
+This repository contains the **Driver Pulse system** built for the Uber Driver Pulse Hackathon.
 
-### 2. `backend/goal_predictor.py` (ML Forecasting Layer)
-Adds a Machine Learning layer on top of the rule-based velocity measurements.
-* **The "Why":** Driver goal achievement is non-linear. A rule might indicate a driver is "on track", but a lightweight Random Forest model learns from historical data (experience, rating, time left) to attach a **probabilistic confidence score**.
-* **Output:** `goal_predictions_output.json` (enriched velocity log)
-* **Note on Models:** This script automatically trains the ML model (`goal_model.pkl`) and label encoder (`goal_label_encoder.pkl`) and saves them to `data/processed_outputs/models/`. **These `.pkl` files are generated on the fly** and are rebuilt every time the script runs on new data.
+The project combines:
 
-### 3. `backend/stress_model.py` (Safety & Stress Engine)
-Analyzes telemetry (Jerk) and Audio levels to detect stress.
-* **The "Why":** Uses physics heuristics (e.g., Horizontal Jerk > 4.0, Audio > 85dB) to flag absolute critical conflicts. ML is purposefully *not* used here because physics limits are deterministic.
-* **Output:** `flagged_moments.json` & `stress_analysis_output.json`
+- Driver stress detection from telemetry
+- Real-time earnings velocity analysis
+- Machine learning goal prediction
+- GenAI-generated driver insights
+- A Streamlit dashboard to visualize everything
 
-### 4. `backend/driver_insights.py` (LLM Context Layer - Safety)
-Connects to an LLM (Llama 3 via Groq) to enrich the flagged safety events with human-readable, supportive feedback.
-* **The "Why":** Raw telemetry (e.g., "Jerk > 4.0") is stressful for a driver to read. Instead of robotic errors, the GenAI agent scales down the aggression and prints a supportive 1-2 sentence message (e.g., "We noticed a sudden stop, Alex. Safety first!").
-* **Output:** `trip_insights_final.json`
+The system analyzes **accelerometer data, audio intensity, and earnings logs** to identify stressful driving moments and determine whether a driver is on track to meet their earnings goal.
 
-### 5. `backend/earnings_insights.py` (LLM Context Layer - Earnings)
-Connects to the same LLM to provide motivational financial coaching based on the ML predictions.
-* **The "Why":** Rather than telling a driver "Your velocity ratio is 0.8 / At Risk", the LLM translates the prediction into a gentle, purely positive nudge (e.g., "You're slightly behind your pace, Alex. Try moving toward downtown for higher demand.").
-* **Output:** `earnings_insights_final.json`
+The **frontend dashboard displays these insights in a glanceable format** so drivers (and judges) can quickly understand their performance.
 
 ---
 
-## 🚀 How to Run
+# System Architecture
 
-Because the system is fully modular, the engines can be run independently in any order. The output files will be written directly to `data/processed_outputs/` for the frontend to consume.
+The architecture follows a **decoupled backend + lightweight frontend design**.
 
-Run from the project root:
+## Core Components
 
-```bash
-# 1. Run the Safety/Stress Pipeline
+### 1. Safety & Stress Engine
+Analyzes **vehicle motion and cabin audio levels** to detect stressful events.
+
+Key signals:
+- Horizontal jerk
+- Sudden braking
+- Loud cabin noise
+
+Outputs structured logs of flagged stress events.
+
+---
+
+### 2. Earnings Velocity Engine
+Calculates **real-time earnings pace (₹/hr)** during a shift.
+
+Handles edge cases such as:
+
+- Cold start periods
+- Shift end detection
+- Low-data velocity noise
+
+Outputs driver earnings velocity metrics.
+
+---
+
+### 3. ML Goal Predictor
+A **Random Forest model** predicts whether a driver will reach their daily earnings goal.
+
+Inputs include:
+- Driver rating
+- Experience level
+- Earnings velocity
+- Remaining shift time
+
+Outputs:
+- Forecast status (`ahead`, `on_track`, `at_risk`)
+- ML confidence score
+
+---
+
+### 4. LLM Insights Engine
+Uses **GenAI (Llama 3 via Groq)** to convert raw system outputs into **driver-friendly insights**.
+
+Example:
+
+Instead of:
+
+Jerk > 4.0 detected
+
+
+Driver sees:
+
+> “We noticed a sudden stop earlier. Take it easy — smooth driving keeps trips comfortable.”
+
+The LLM layer **does not decide events**, it only **translates them into supportive feedback**.
+
+---
+
+### 5. Driver Dashboard
+A **Streamlit web application** that visualizes:
+
+- Stress events
+- Trip summaries
+- Earnings velocity
+- Goal predictions
+- AI insights
+
+The frontend **does not run ML models** — it simply reads **structured outputs from the backend**.
+
+---
+
+# Project Structure
+
+
+backend/
+stress_model.py
+earnings_velocity.py
+goal_predictor.py
+driver_insights.py
+earnings_insights.py
+
+utils/
+seed_stress_data.py
+
+data/
+sensor_data/
+processed_outputs/
+earnings/
+drivers/
+
+app/
+driver_pulse_app.py
+
+README.md
+design_doc.md
+progress_log.md
+requirements.txt
+
+
+---
+
+# Backend Pipelines
+
+## Stress Detection
+
+Run:
+
+
 python backend/stress_model.py
 
-# 2. Run the Earnings Velocity Engine
+
+Output:
+
+
+data/processed_outputs/flagged_moments.json
+data/processed_outputs/stress_analysis_output.json
+
+
+---
+
+## Earnings Velocity
+
+Run:
+
+
 python backend/earnings_velocity.py
 
-# 3. Train and Run the ML Goal Predictor
+
+Output:
+
+
+data/processed_outputs/earnings_velocity_output.json
+data/processed_outputs/trip_summaries.csv
+
+
+---
+
+## ML Goal Predictor
+
+Run:
+
+
 python backend/goal_predictor.py
 
-# 4. Generate AI Notifications from Safety Events
+
+This script automatically:
+
+- Trains a Random Forest model
+- Saves `goal_model.pkl`
+- Saves `goal_label_encoder.pkl`
+
+Outputs:
+
+
+goal_predictions_output.json
+
+
+---
+
+## Safety LLM Insights
+
+Run:
+
+
 python backend/driver_insights.py
 
-# 5. Generate AI Financial Coaching from Earnings Predictions
-python backend/earnings_insights.py
-```
 
-## 📊 Data Contracts (Outputs)
-All finalized data for the Frontend App is dropped into `/data/processed_outputs/`. 
-The frontend expects these specific structures:
-- `stress_analysis_output.json`: Array of events with `is_stress_event` flags and exact timestamps.
-- `trip_summaries.csv`: One summary row per driver per shift date.
-- `goal_predictions_output.json`: Rich event log containing `forecast_status` (explainable rule label) and `ml_confidence` (0.0 to 1.0 score for the UI).
-- `trip_insights_final.json`: Generative AI contextual notifications derived from safety flags.
-- `earnings_insights_final.json`: Generative AI motivational coaching derived from ML goal predictions.
+Output:
+
+
+trip_insights_final.json
+
+
+---
+
+## Earnings Coaching Insights
+
+Run:
+
+
+python backend/earnings_insights.py
+
+
+Output:
+
+
+earnings_insights_final.json
+
+
+---
+
+# Running the Dashboard
+
+Start the frontend:
+
+
+streamlit run app/driver_pulse_app.py
+
+
+Open in browser:
+
+
+http://localhost:8501
+
+
+---
+
+# Trade-offs & Assumptions
+
+### Precomputed Outputs
+The dashboard reads **pre-generated CSV/JSON logs** instead of running models in real time.
+
+This ensures:
+- Faster UI
+- Simpler deployment
+- Reliable hackathon demos
+
+---
+
+### Rule-Based Stress Detection
+Stress detection uses **deterministic physics rules** rather than deep learning for:
+- Explainability
+- Debuggability
+- Traceable thresholds
+
+---
+
+### Synthetic Dataset
+Mock telematics data simulates scenarios such as:
+- Harsh braking
+- Loud cabin arguments
+- False positives (potholes, sirens)
+
+This helps demonstrate edge-case handling.
+
+---
+
+# Next Steps
+
+### Frontend
+- Improve dashboard design
+- Add additional charts
+- Improve mobile responsiveness
+
+### ML Team
+- Tune thresholds in stress detection
+- Improve goal prediction accuracy
+- Add new behavioral features
+
+### Demo Preparation
+Record a **2–3 minute walkthrough video**:
+
+0:00–0:30 – Architecture overview  
+0:30–2:00 – Live dashboard walkthrough  
+2:00–3:00 – Explain backend outputs and models
