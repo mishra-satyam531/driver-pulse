@@ -6,7 +6,6 @@ import os
 import pandas as pd
 from openai import OpenAI
 
-# Configuration - easily update these with your API details
 API_KEY = os.getenv("OPENAI_API_KEY", "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")
 BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
 # File paths
@@ -15,12 +14,11 @@ INPUT_PATH = BASE_DIR / "data" / "processed_outputs" / "flagged_moments.json"
 DRIVERS_PATH = BASE_DIR / "data" / "drivers" / "drivers.csv"
 OUTPUT_PATH = BASE_DIR / "data" / "processed_outputs" / "trip_insights_final.json"
 
-# System prompt for the LLM
 SYSTEM_PROMPT = """You are 'Drive Pulse', an empathetic, non-judgmental safety assistant for Uber drivers. Translate raw telematics into brief, supportive insights.
 
 STRICT RULES:
 1. DO NOT judge or assign blame. DO NOT give driving advice.
-2. Keep it to 1-2 sentences. Address the driver as 'Alex'.
+2. Keep it to 1-2 sentences. Address the driver as '{driver_name}'.
 3. AUDIO RULE: ONLY mention noise or stressful environments if the input includes 'high audio', 'argument', or 'audio spike'. If audio is normal/quiet, stay silent about it.
 4. MOTION RULE: ONLY mention braking or jarring movements if motion_score >= 0.4 or the input includes 'harsh braking'.
 5. PURE FOCUS: If only one sensor (Motion or Audio) triggers a 'medium/high' flag, focus ONLY on that sensor. Do not add 'filler' about the other sensor being normal."""
@@ -35,7 +33,6 @@ def load_drivers_data() -> Dict[str, str]:
     
     try:
         drivers_df = pd.read_csv(DRIVERS_PATH)
-        # Extract first name from full name (split on space and take first part)
         drivers_df['first_name'] = drivers_df['name'].str.split().str[0]
         return dict(zip(drivers_df['driver_id'], drivers_df['first_name']))
     except Exception as e:
@@ -56,15 +53,7 @@ def load_flagged_moments() -> List[Dict[str, Any]]:
 def generate_llm_insight(explanation: str, timestamp: str, driver_name: str, client: OpenAI) -> str:
     """Generate LLM insight for a given event with personalized driver name."""
     
-    # Update system prompt to use the actual driver name
-    personalized_system_prompt = f"""You are 'Drive Pulse', an empathetic, non-judgmental safety assistant for Uber drivers. Translate raw telematics into brief, supportive insights.
-
-STRICT RULES:
-1. DO NOT judge or assign blame. DO NOT give driving advice.
-2. Keep it to 1-2 sentences. Address the driver as '{driver_name}'.
-3. AUDIO RULE: ONLY mention noise or stressful environments if the input includes 'high audio', 'argument', or 'audio spike'. If audio is normal/quiet, stay silent about it.
-4. MOTION RULE: ONLY mention braking or jarring movements if motion_score >= 0.4 or the input includes 'harsh braking'.
-5. PURE FOCUS: If only one sensor (Motion or Audio) triggers a 'medium/high' flag, focus ONLY on that sensor. Do not add 'filler' about the other sensor being normal."""
+    personalized_system_prompt = SYSTEM_PROMPT.format(driver_name=driver_name)
     
     user_prompt = f"Input Data: \"{explanation} at {timestamp}.\""
     
@@ -114,7 +103,7 @@ def process_events_with_llm(events: List[Dict[str, Any]], drivers_mapping: Dict[
             event['llm_insight'] = llm_insight
         else:
             # For low severity events, add empty insight or skip
-            event['llm_insight'] = ""
+            event['llm_insight'] = "Low Severity Event"
         
         processed_events.append(event)
     

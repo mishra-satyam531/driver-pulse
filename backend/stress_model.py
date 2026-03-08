@@ -121,6 +121,7 @@ def apply_stress_rules(fused_df: pd.DataFrame) -> pd.DataFrame:
 
     keep_cols = [
         "trip_id",
+        "driver_id",
         "timestamp",
         "elapsed_sec",
         "speed_kmh",
@@ -170,8 +171,9 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
         return int((t1 - t0).total_seconds()) + 1
 
     aggregated = (
-        df.groupby(["trip_id", "Stress_Flag", "event_block_id"], as_index=False)
+        df.groupby(["trip_id", "driver_id", "Stress_Flag", "event_block_id"], as_index=False)
         .agg(
+            driver_id=("driver_id", "first"),
             timestamp=("timestamp", "first"),
             elapsed_sec=("elapsed_sec", "first"),
             speed_kmh=("speed_kmh", "first"),
@@ -198,8 +200,6 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
         "unknown"
     )
     aggregated = aggregated.drop(columns=["Stress_Flag"])
-
-    aggregated["driver_id"] = "DRV001"
     
     # Event absorption filter: remove lesser flags within 15 seconds of conflict moments
     conflict_indices = aggregated[aggregated["flag_type"] == "conflict_moment"].index
@@ -207,12 +207,14 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
     
     for conflict_idx in conflict_indices:
         conflict_time = aggregated.loc[conflict_idx, "elapsed_sec"]
+        current_trip = aggregated.loc[conflict_idx, "trip_id"]
         time_window_start = conflict_time - 15
         time_window_end = conflict_time + 15
         
-        # Find lesser flags within 15 seconds of this conflict moment
+        # Find lesser flags within 15 seconds of this conflict moment (same trip only)
         lesser_flags = aggregated[
             (aggregated.index != conflict_idx) &
+            (aggregated["trip_id"] == current_trip) &
             (aggregated["flag_type"].isin(["audio_spike", "harsh_braking"])) &
             (aggregated["elapsed_sec"] >= time_window_start) &
             (aggregated["elapsed_sec"] <= time_window_end)
