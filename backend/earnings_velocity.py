@@ -135,10 +135,10 @@ def compute_velocity_metrics(
             "trips_completed":          trips,
             "trips_per_hour":           round(trips / elapsed_h, 2) if elapsed_h > 0 else 0.0,
             # velocity metrics
-            "current_velocity":         current_v,
-            "target_velocity":          target_v,
-            "velocity_delta":           delta,
-            "projected_final_earnings": projected,
+            "current_velocity":         round(current_v, 2) if current_v is not None else None,
+            "target_velocity":          round(target_v, 2) if target_v is not None else None,
+            "velocity_delta":           round(delta, 2) if delta is not None else None,
+            "projected_final_earnings": round(projected, 2) if projected is not None else None,
             # forecast
             "forecast_status":          status,
             # output schema 
@@ -173,8 +173,8 @@ def build_trip_summaries(velocity_df: pd.DataFrame) -> pd.DataFrame:
             "target_earnings":            float(last["target_earnings"]),
             "pct_to_goal":                float(last["pct_to_goal"]),
             "total_trips":                int(last["trips_completed"]),
-            "avg_earnings_per_hour":      float(last["current_velocity"]) if last["current_velocity"] else 0.0,
-            "projected_final_earnings":   float(last["projected_final_earnings"]) if last["projected_final_earnings"] else 0.0,
+            "avg_earnings_per_hour":      round(float(last["current_velocity"]), 2) if last["current_velocity"] is not None else 0.0,
+            "projected_final_earnings":   round(float(last["projected_final_earnings"]), 2) if last["projected_final_earnings"] is not None else 0.0,
             "final_forecast":             last["forecast_status"],
         }
 

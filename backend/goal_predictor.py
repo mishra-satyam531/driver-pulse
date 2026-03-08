@@ -197,6 +197,9 @@ def export_predictions(df: pd.DataFrame) -> None:
         "ml_confidence", "signal_type", "raw_value", "event_label", "threshold",
     ]
     out = df[[c for c in keep if c in df.columns]].copy()
+    for col in ["current_velocity", "target_velocity", "velocity_delta", "projected_final_earnings"]:
+        if col in out.columns:
+            out[col] = out[col].apply(lambda x: round(float(x), 2) if pd.notna(x) and x is not None else x)
     OUTPUT_PATH.write_text(
         json.dumps(out.to_dict(orient="records"), indent=2, default=str),
         encoding="utf-8",

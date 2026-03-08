@@ -11,12 +11,12 @@
     "projected_final_earnings": 2798.98,
     "forecast_status": "at_risk",
     "ml_forecast": "at_risk",
-    "ml_confidence": 0.409,
+    "ml_confidence": 0.413,
     "signal_type": "EARNINGS",
     "raw_value": 263.64,
     "event_label": "AHEAD",
     "threshold": 148.81,
-    "earnings_llm_insight": "\"Hey Alex, you're off to a good start with 8.8% of your goal already earned, but let's keep the momentum going. Don't worry, you're still on track to crush your target - a gentle adjustment to your pace will get you back on course!\""
+    "earnings_llm_insight": "John, you're off to a great start, but let's focus on maintaining that momentum. Keep delivering top-notch rides, and I'm confident you'll get back on track to meet your goal of ₹1643."
   },
   {
     "driver_id": "DRV028",
@@ -35,7 +35,7 @@
     "raw_value": 1172.58,
     "event_label": "ACHIEVED",
     "threshold": 0.0,
-    "earnings_llm_insight": "\"Hey Alex, you're crushing it - you've already exceeded your goal by 39% and you're right on track to meet your target earnings! Keep up the fantastic pace, you're rocking this.\""
+    "earnings_llm_insight": "\"Hey Sarah, you're crushing it - you've already surpassed your goal and are well ahead of schedule! Keep up the amazing pace, you're on track to a fantastic earnings month.\""
   },
   {
     "driver_id": "DRV162",
@@ -49,12 +49,12 @@
     "projected_final_earnings": 2383.3,
     "forecast_status": "at_risk",
     "ml_forecast": "at_risk",
-    "ml_confidence": 0.413,
+    "ml_confidence": 0.412,
     "signal_type": "EARNINGS",
     "raw_value": 259.62,
     "event_label": "AHEAD",
     "threshold": 174.93,
-    "earnings_llm_insight": "\"Hey Alex, don't worry, you're doing great - 30.3% of the way to your goal is a solid start. Keep up the good pace, you're still on track, just take it one gig at a time, and your earnings will start to pick up again.\""
+    "earnings_llm_insight": "\"Hey Michael, you're halfway to your goal with ₹540 earned so far, but let's take a closer look at your pace - you're slightly behind schedule. Keep pushing, and I'm confident you'll pick up speed to hit that ₹1782 target.\""
   },
   {
     "driver_id": "DRV195",
@@ -73,7 +73,7 @@
     "raw_value": 427.2,
     "event_label": "ACHIEVED",
     "threshold": 0.0,
-    "earnings_llm_insight": "\"Hey Alex, you're crushing your goals - you've already surpassed your target of ₹1612.0 and are now at 102.3%! Keep up the fantastic work, you're on a roll.\""
+    "earnings_llm_insight": "\"Hey David, you're crushing your goal with a solid 102.3% progress so far! Keep up this incredible pace and you'll meet your target in no time.\""
   },
   {
     "driver_id": "DRV018",
@@ -92,6 +92,6 @@
     "raw_value": 316.97,
     "event_label": "ACHIEVED",
     "threshold": 0.0,
-    "earnings_llm_insight": "\"Hey Alex, you're crushing it - you've already surpassed your goal by over 16%! Your solid pace is right on track with our forecast, keep up the fantastic work.\""
+    "earnings_llm_insight": "\"Hey Emily, you're cruising along perfectly - you've already surpassed your goal with 116.3% earnings. Keep up the fantastic work, you're on track to meet your targets!\""
   }
 ]

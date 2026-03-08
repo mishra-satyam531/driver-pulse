@@ -84,9 +84,17 @@ def render_trip_overview(flagged_df: pd.DataFrame) -> None:
         )
         .sort_values("first_timestamp")
     )
+    col_config = {}
+    if "max_combined_score" in trip_summary.columns:
+        col_config["max_combined_score"] = st.column_config.NumberColumn("Max Score", format="%.2f")
+    if "flags_count" in trip_summary.columns:
+        col_config["flags_count"] = st.column_config.NumberColumn("Flags", format="%d")
+    if "high_flags" in trip_summary.columns:
+        col_config["high_flags"] = st.column_config.NumberColumn("High Flags", format="%d")
 
     st.dataframe(
         trip_summary,
+        column_config=col_config,
         use_container_width=True,
         hide_index=True,
     )
@@ -146,15 +154,26 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
         "motion_score",
         "audio_score",
         "combined_score",
+        "Horizontal_Jerk",
         "explanation",
         "context",
     ]
     if "llm_insight" in merged.columns:
         table_cols.append("llm_insight")
+    table_cols = [c for c in table_cols if c in merged.columns]
 
     display_df = merged[table_cols].copy()
+    score_col_config = {
+        "motion_score": st.column_config.NumberColumn("Motion", format="%.2f"),
+        "audio_score": st.column_config.NumberColumn("Audio", format="%.2f"),
+        "combined_score": st.column_config.NumberColumn("Score", format="%.2f"),
+        "Horizontal_Jerk": st.column_config.NumberColumn("Jerk (m/s²)", format="%.2f"),
+    }
+    col_config = {k: v for k, v in score_col_config.items() if k in display_df.columns}
+    styled = display_df.style.applymap(style_severity, subset=["severity"])
     st.dataframe(
-        display_df.style.applymap(style_severity, subset=["severity"]),
+        styled,
+        column_config=col_config,
         use_container_width=True,
         hide_index=True,
     )
@@ -212,10 +231,10 @@ def render_earnings_view(velocity_df: pd.DataFrame, goals_df: pd.DataFrame, driv
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Current Earnings", f"{current_earnings:.0f}" if current_earnings is not None else "—")
-    col2.metric("Current Velocity", f"{current_velocity:.1f}" if current_velocity is not None else "—")
+    col2.metric("Current Velocity", f"{current_velocity:.2f}" if current_velocity is not None else "—")
     col3.metric(
         "Velocity vs Target",
-        f"{velocity_delta:.1f}" if velocity_delta is not None else "—",
+        f"{velocity_delta:.2f}" if velocity_delta is not None else "—",
         help="Positive means ahead of goal pace; negative means falling behind.",
     )
 
@@ -232,17 +251,26 @@ def render_earnings_view(velocity_df: pd.DataFrame, goals_df: pd.DataFrame, driv
             height=300,
         )
 
+        vel_display = vel_driver[
+            [
+                "timestamp",
+                "cumulative_earnings",
+                "current_velocity",
+                "target_velocity",
+                "velocity_delta",
+                "forecast_status",
+            ]
+        ].copy()
+        vel_col_config = {
+            "cumulative_earnings": st.column_config.NumberColumn("Earnings (₹)", format="%.2f"),
+            "current_velocity": st.column_config.NumberColumn("Velocity", format="%.2f"),
+            "target_velocity": st.column_config.NumberColumn("Target", format="%.2f"),
+            "velocity_delta": st.column_config.NumberColumn("Delta", format="%.2f"),
+        }
+        vel_col_config = {k: v for k, v in vel_col_config.items() if k in vel_display.columns}
         st.dataframe(
-            vel_driver[
-                [
-                    "timestamp",
-                    "cumulative_earnings",
-                    "current_velocity",
-                    "target_velocity",
-                    "velocity_delta",
-                    "forecast_status",
-                ]
-            ],
+            vel_display,
+            column_config=vel_col_config,
             use_container_width=True,
             hide_index=True,
         )

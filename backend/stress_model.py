@@ -273,6 +273,20 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
         "%d-%m-%Y %H:%M"
     )
 
+    for col in [
+        "motion_score",
+        "audio_score",
+        "combined_score",
+        "Horizontal_Jerk",
+        "Vertical_Jerk",
+        "Audio_Rolling_15s",
+        "speed_kmh",
+        "gps_lat",
+        "gps_lon",
+    ]:
+        if col in aggregated.columns:
+            aggregated[col] = aggregated[col].astype(float).round(2)
+
     aggregated = aggregated[
         [
             "flag_id",

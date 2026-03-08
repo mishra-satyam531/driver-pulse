@@ -1,16 +1,16 @@
 driver_id,name,city,shift_preference,avg_hours_per_day,avg_earnings_per_hour,experience_months,rating
-DRV001,Taylor Smith,San Francisco,Morning,8.5,28.50,24,4.90
-DRV002,Jordan Lee,New Delhi,Night,6.0,18.00,12,5.00
-DRV003,Alex Rivera,Chicago,Afternoon,7.5,25.00,36,4.80
-DRV004,Sarah Chen,New York,Split,9.0,32.00,48,4.95
-DRV005,Michael Brown,London,Morning,5.5,22.00,6,4.70
-DRV006,Priya Sharma,New Delhi,Afternoon,8.0,19.50,18,4.90
-DRV007,David Wilson,Toronto,Night,7.0,26.50,42,4.85
-DRV008,Emma Davis,San Francisco,Split,6.5,30.00,9,4.92
-DRV009,James Taylor,Chicago,Morning,10.0,24.50,60,4.98
-DRV010,Linda Martinez,New York,Afternoon,8.5,29.00,22,4.88
-DRV011,William Anderson,London,Night,5.0,28.00,15,4.75
-DRV012,Sophie Martin,Toronto,Morning,7.5,25.50,30,4.91
-DRV013,Rahul Patel,New Delhi,Split,9.5,20.00,54,4.97
-DRV014,Olivia White,San Francisco,Afternoon,6.0,31.00,11,4.89
-DRV015,Daniel Kim,Chicago,Night,8.0,27.50,28,4.94
+DRV001,Alex,San Francisco,Morning,8,175.5,24,4.8
+DRV147,John Doe,New York,Night,6,150.2,12,4.5
+DRV028,Sarah Jane,Chicago,Morning,10,190.0,36,4.9
+DRV162,Michael Brown,San Francisco,Afternoon,7,165.0,8,4.2
+DRV195,David Wilson,New York,Night,8,155.8,18,4.7
+DRV018,Emily Davis,Chicago,Morning,9,182.3,42,5.0
+DRV040,Chris Miller,New York,Afternoon,6,145.5,4,4.0
+DRV096,Jessica Moore,San Francisco,Night,8,168.9,20,4.6
+DRV182,Daniel Taylor,Chicago,Morning,7,172.1,30,4.8
+DRV163,Ashley Anderson,San Francisco,Night,9,158.4,14,4.4
+DRV010,Matthew Thomas,New York,Morning,8,162.2,28,4.7
+DRV071,Laura Jackson,Chicago,Afternoon,6,148.8,10,4.3
+DRV192,Robert White,San Francisco,Morning,10,188.4,38,4.9
+DRV114,Linda Harris,New York,Night,7,152.6,22,4.5
+DRV176,James Martin,Chicago,Afternoon,8,160.0,16,4.6
