@@ -2,7 +2,7 @@
   {
     "log_id": "VEL001",
     "driver_id": "DRV147",
-    "city": NaN,
+    "city": "New York",
     "timestamp": "2024-02-06T07:03:00",
     "elapsed_hours": 0.55,
     "remaining_hours": 10.067,
@@ -24,7 +24,7 @@
   {
     "log_id": "VEL002",
     "driver_id": "DRV028",
-    "city": NaN,
+    "city": "Chicago",
     "timestamp": "2024-02-06T07:38:00",
     "elapsed_hours": 1.47,
     "remaining_hours": 9.15,
@@ -46,7 +46,7 @@
   {
     "log_id": "VEL003",
     "driver_id": "DRV162",
-    "city": NaN,
+    "city": "San Francisco",
     "timestamp": "2024-02-06T08:15:00",
     "elapsed_hours": 2.08,
     "remaining_hours": 7.1,
@@ -68,7 +68,7 @@
   {
     "log_id": "VEL004",
     "driver_id": "DRV195",
-    "city": NaN,
+    "city": "New York",
     "timestamp": "2024-02-06T08:52:00",
     "elapsed_hours": 2.87,
     "remaining_hours": 6.667,
@@ -90,7 +90,7 @@
   {
     "log_id": "VEL005",
     "driver_id": "DRV018",
-    "city": NaN,
+    "city": "Chicago",
     "timestamp": "2024-02-06T09:42:00",
     "elapsed_hours": 3.7,
     "remaining_hours": 6.883,
@@ -112,7 +112,7 @@
   {
     "log_id": "VEL006",
     "driver_id": "DRV040",
-    "city": NaN,
+    "city": "New York",
     "timestamp": "2024-02-06T10:28:00",
     "elapsed_hours": 4.47,
     "remaining_hours": 3.367,
@@ -134,7 +134,7 @@
   {
     "log_id": "VEL007",
     "driver_id": "DRV096",
-    "city": NaN,
+    "city": "San Francisco",
     "timestamp": "2024-02-06T11:15:00",
     "elapsed_hours": 5.25,
     "remaining_hours": 3.467,
@@ -156,7 +156,7 @@
   {
     "log_id": "VEL008",
     "driver_id": "DRV182",
-    "city": NaN,
+    "city": "Chicago",
     "timestamp": "2024-02-06T17:58:00",
     "elapsed_hours": 0.97,
     "remaining_hours": 0.0,
@@ -178,7 +178,7 @@
   {
     "log_id": "VEL009",
     "driver_id": "DRV163",
-    "city": NaN,
+    "city": "San Francisco",
     "timestamp": "2024-02-06T18:42:00",
     "elapsed_hours": 2.2,
     "remaining_hours": 0.6,
@@ -222,7 +222,7 @@
   {
     "log_id": "VEL011",
     "driver_id": "DRV071",
-    "city": NaN,
+    "city": "Chicago",
     "timestamp": "2024-02-06T08:32:00",
     "elapsed_hours": 1.03,
     "remaining_hours": 6.333,
@@ -244,7 +244,7 @@
   {
     "log_id": "VEL012",
     "driver_id": "DRV192",
-    "city": NaN,
+    "city": "San Francisco",
     "timestamp": "2024-02-06T09:18:00",
     "elapsed_hours": 2.3,
     "remaining_hours": 6.9,
@@ -266,7 +266,7 @@
   {
     "log_id": "VEL013",
     "driver_id": "DRV114",
-    "city": NaN,
+    "city": "New York",
     "timestamp": "2024-02-06T10:22:00",
     "elapsed_hours": 3.37,
     "remaining_hours": 2.933,
@@ -288,7 +288,7 @@
   {
     "log_id": "VEL014",
     "driver_id": "DRV176",
-    "city": NaN,
+    "city": "Chicago",
     "timestamp": "2024-02-06T06:52:00",
     "elapsed_hours": 0.87,
     "remaining_hours": 9.883,
@@ -530,7 +530,7 @@
   {
     "log_id": "VEL025",
     "driver_id": "DRV013",
-    "city": "New Delhi",
+    "city": NaN,
     "timestamp": "2024-02-06T08:49:48",
     "elapsed_hours": 2.83,
     "remaining_hours": 7.47,
@@ -596,7 +596,7 @@
   {
     "log_id": "VEL028",
     "driver_id": "DRV008",
-    "city": "San Francisco",
+    "city": NaN,
     "timestamp": "2024-02-06T07:18:00",
     "elapsed_hours": 1.3,
     "remaining_hours": 10.7,
@@ -772,7 +772,7 @@
   {
     "log_id": "VEL037",
     "driver_id": "DRV008",
-    "city": "San Francisco",
+    "city": NaN,
     "timestamp": "2024-02-06T12:55:48",
     "elapsed_hours": 6.93,
     "remaining_hours": 5.07,
@@ -1168,7 +1168,7 @@
   {
     "log_id": "VEL056",
     "driver_id": "DRV011",
-    "city": "London",
+    "city": NaN,
     "timestamp": "2024-02-06T12:59:24",
     "elapsed_hours": 6.99,
     "remaining_hours": 0.0,
@@ -1410,7 +1410,7 @@
   {
     "log_id": "VEL068",
     "driver_id": "DRV004",
-    "city": "New York",
+    "city": NaN,
     "timestamp": "2024-02-06T06:32:24",
     "elapsed_hours": 0.54,
     "remaining_hours": 6.46,
@@ -1498,7 +1498,7 @@
   {
     "log_id": "VEL072",
     "driver_id": "DRV009",
-    "city": "Chicago",
+    "city": NaN,
     "timestamp": "2024-02-06T10:18:00",
     "elapsed_hours": 4.3,
     "remaining_hours": 9.7,
@@ -1586,7 +1586,7 @@
   {
     "log_id": "VEL077",
     "driver_id": "DRV011",
-    "city": "London",
+    "city": NaN,
     "timestamp": "2024-02-06T11:03:00",
     "elapsed_hours": 5.05,
     "remaining_hours": 1.917,
@@ -2114,7 +2114,7 @@
   {
     "log_id": "VEL101",
     "driver_id": "DRV004",
-    "city": "New York",
+    "city": NaN,
     "timestamp": "2024-02-06T07:51:36",
     "elapsed_hours": 1.86,
     "remaining_hours": 5.14,
@@ -2400,7 +2400,7 @@
   {
     "log_id": "VEL115",
     "driver_id": "DRV007",
-    "city": "Toronto",
+    "city": NaN,
     "timestamp": "2024-02-06T13:29:24",
     "elapsed_hours": 7.49,
     "remaining_hours": 0.01,
@@ -2422,7 +2422,7 @@
   {
     "log_id": "VEL116",
     "driver_id": "DRV096",
-    "city": NaN,
+    "city": "San Francisco",
     "timestamp": "2024-02-06T10:21:36",
     "elapsed_hours": 4.36,
     "remaining_hours": 4.357,
@@ -2466,7 +2466,7 @@
   {
     "log_id": "VEL118",
     "driver_id": "DRV008",
-    "city": "San Francisco",
+    "city": NaN,
     "timestamp": "2024-02-06T11:51:36",
     "elapsed_hours": 5.86,
     "remaining_hours": 6.14,
@@ -2620,7 +2620,7 @@
   {
     "log_id": "VEL126",
     "driver_id": "DRV005",
-    "city": "London",
+    "city": NaN,
     "timestamp": "2024-02-06T10:07:12",
     "elapsed_hours": 4.12,
     "remaining_hours": 10.38,
@@ -2708,7 +2708,7 @@
   {
     "log_id": "VEL130",
     "driver_id": "DRV012",
-    "city": "Toronto",
+    "city": NaN,
     "timestamp": "2024-02-06T06:55:48",
     "elapsed_hours": 0.93,
     "remaining_hours": 12.37,
@@ -2906,7 +2906,7 @@
   {
     "log_id": "VEL140",
     "driver_id": "DRV015",
-    "city": "Chicago",
+    "city": NaN,
     "timestamp": "2024-02-06T07:42:36",
     "elapsed_hours": 1.71,
     "remaining_hours": 9.373,
@@ -3082,7 +3082,7 @@
   {
     "log_id": "VEL148",
     "driver_id": "DRV009",
-    "city": "Chicago",
+    "city": NaN,
     "timestamp": "2024-02-06T07:27:00",
     "elapsed_hours": 1.45,
     "remaining_hours": 12.55,
@@ -3104,7 +3104,7 @@
   {
     "log_id": "VEL149",
     "driver_id": "DRV014",
-    "city": "San Francisco",
+    "city": NaN,
     "timestamp": "2024-02-06T12:15:36",
     "elapsed_hours": 6.26,
     "remaining_hours": 4.14,
@@ -3522,7 +3522,7 @@
   {
     "log_id": "VEL169",
     "driver_id": "DRV176",
-    "city": NaN,
+    "city": "Chicago",
     "timestamp": "2024-02-06T07:53:24",
     "elapsed_hours": 1.89,
     "remaining_hours": 8.86,
@@ -3808,7 +3808,7 @@
   {
     "log_id": "VEL182",
     "driver_id": "DRV195",
-    "city": NaN,
+    "city": "New York",
     "timestamp": "2024-02-06T09:51:36",
     "elapsed_hours": 3.86,
     "remaining_hours": 5.673,
@@ -3830,7 +3830,7 @@
   {
     "log_id": "VEL183",
     "driver_id": "DRV004",
-    "city": "New York",
+    "city": NaN,
     "timestamp": "2024-02-06T07:00:36",
     "elapsed_hours": 1.01,
     "remaining_hours": 5.99,
@@ -3940,7 +3940,7 @@
   {
     "log_id": "VEL189",
     "driver_id": "DRV018",
-    "city": NaN,
+    "city": "Chicago",
     "timestamp": "2024-02-06T12:07:48",
     "elapsed_hours": 6.13,
     "remaining_hours": 4.453,
@@ -4424,7 +4424,7 @@
   {
     "log_id": "VEL212",
     "driver_id": "DRV028",
-    "city": NaN,
+    "city": "Chicago",
     "timestamp": "2024-02-06T07:51:36",
     "elapsed_hours": 1.86,
     "remaining_hours": 8.923,
@@ -4468,7 +4468,7 @@
   {
     "log_id": "VEL214",
     "driver_id": "DRV008",
-    "city": "San Francisco",
+    "city": NaN,
     "timestamp": "2024-02-06T11:21:36",
     "elapsed_hours": 5.36,
     "remaining_hours": 6.64,

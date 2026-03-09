@@ -19,7 +19,11 @@
     "Horizontal_Jerk": 5.0,
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 65.5,
-    "audio_class": "normal"
+    "audio_class": "normal",
+    "signal_type": "ACCELEROMETER",
+    "raw_value": "5.0 m/s^2",
+    "threshold": "4.0 m/s^2",
+    "event_label": "HARSH_BRAKING"
   },
   {
     "flag_id": "FLAG002",
@@ -41,7 +45,11 @@
     "Horizontal_Jerk": 0.0,
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 91.0,
-    "audio_class": "argument"
+    "audio_class": "argument",
+    "signal_type": "AUDIO",
+    "raw_value": "91.0 dB",
+    "threshold": "85 dB",
+    "event_label": "AUDIO_SPIKE"
   },
   {
     "flag_id": "FLAG003",
@@ -63,7 +71,11 @@
     "Horizontal_Jerk": 4.5,
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 59.5,
-    "audio_class": "normal"
+    "audio_class": "normal",
+    "signal_type": "ACCELEROMETER",
+    "raw_value": "4.5 m/s^2",
+    "threshold": "4.0 m/s^2",
+    "event_label": "HARSH_BRAKING"
   },
   {
     "flag_id": "FLAG004",
@@ -85,7 +97,11 @@
     "Horizontal_Jerk": 6.0,
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 95.5,
-    "audio_class": "argument"
+    "audio_class": "argument",
+    "signal_type": "COMBINED",
+    "raw_value": "6.0 m/s^2, 95.5 dB",
+    "threshold": "4.0 m/s^2, 85 dB",
+    "event_label": "CONFLICT_MOMENT"
   },
   {
     "flag_id": "FLAG005",
@@ -107,6 +123,10 @@
     "Horizontal_Jerk": 0.0,
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 95.5,
-    "audio_class": "argument"
+    "audio_class": "argument",
+    "signal_type": "AUDIO",
+    "raw_value": "95.5 dB",
+    "threshold": "85 dB",
+    "event_label": "AUDIO_SPIKE"
   }
 ]

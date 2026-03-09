@@ -304,6 +304,38 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
         if col in aggregated.columns:
             aggregated[col] = aggregated[col].astype(float).round(2)
 
+    # Add Uber's required schema columns
+    signal_type_map = {
+        "harsh_braking": "ACCELEROMETER",
+        "audio_spike": "AUDIO",
+        "conflict_moment": "COMBINED"
+    }
+    aggregated["signal_type"] = aggregated["flag_type"].map(signal_type_map).fillna("UNKNOWN")
+    
+    # Create raw_value column based on signal type
+    def create_raw_value(row):
+        if row["signal_type"] == "ACCELEROMETER":
+            return f"{row['Horizontal_Jerk']} m/s^2"
+        elif row["signal_type"] == "AUDIO":
+            return f"{row['Audio_Rolling_15s']} dB"
+        elif row["signal_type"] == "COMBINED":
+            return f"{row['Horizontal_Jerk']} m/s^2, {row['Audio_Rolling_15s']} dB"
+        else:
+            return "UNKNOWN"
+    
+    aggregated["raw_value"] = aggregated.apply(create_raw_value, axis=1)
+    
+    # Create threshold column based on signal type
+    threshold_map = {
+        "ACCELEROMETER": "4.0 m/s^2",
+        "AUDIO": "85 dB",
+        "COMBINED": "4.0 m/s^2, 85 dB"
+    }
+    aggregated["threshold"] = aggregated["signal_type"].map(threshold_map).fillna("UNKNOWN")
+    
+    # Create event_label column (uppercase version of flag_type)
+    aggregated["event_label"] = aggregated["flag_type"].str.upper()
+
     aggregated = aggregated[
         [
             "flag_id",
@@ -326,6 +358,10 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
             "Vertical_Jerk",
             "Audio_Rolling_15s",
             "audio_class",
+            "signal_type",
+            "raw_value",
+            "threshold",
+            "event_label",
         ]
     ]
 
