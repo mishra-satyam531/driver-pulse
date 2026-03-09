@@ -1,0 +1,15 @@
+[theme]
+# Primary accent color (Uber-esque deep blue/indigo for analytics)
+primaryColor = "#1e3a8a"
+
+# Dark gray/black background for a premium "Analytics Engine" feel
+backgroundColor = "#0f1115"
+
+# Slightly lighter secondary background for containers and sidebar
+secondaryBackgroundColor = "#181a20"
+
+# Crisp off-white text for maximum contrast without harshness
+textColor = "#f9fafb"
+
+# Clean system font
+font = "sans serif"

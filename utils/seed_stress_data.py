@@ -17,8 +17,11 @@ def generate_mock_telematics_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     start_ts = pd.Timestamp("2025-01-01T00:00:00Z")
     timestamps = start_ts + pd.to_timedelta(elapsed_seconds, unit="s")
 
-    trip_id = "mock_trip_001"
+    trip_id = f"trip_{rng.integers(1000, 9999)}"
     trip_ids = np.full(n_seconds, trip_id, dtype=object)
+    
+    driver_id = f"DRV{rng.integers(100, 999)}"
+    driver_ids = np.full(n_seconds, driver_id, dtype=object)
 
     base_lat = 37.7749
     base_lon = -122.4194
@@ -78,6 +81,7 @@ def generate_mock_telematics_data() -> tuple[pd.DataFrame, pd.DataFrame]:
         {
             "timestamp": timestamps,
             "trip_id": trip_ids,
+            "driver_id": driver_ids,
             "elapsed_seconds": elapsed_seconds,
             "elapsed_sec": elapsed_seconds,
             "accel_x": accel_x,
