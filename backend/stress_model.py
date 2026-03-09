@@ -31,6 +31,19 @@ def load_sensor_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
         print(f"Error reading sensor CSV files: {e}")
         raise
 
+    # DATA CLEANING: Accelerometer - Clip to physically realistic range [-20, 20] m/s²
+    accel_cols = ['accel_x', 'accel_y', 'accel_z']
+    for col in accel_cols:
+        if col in accel_df.columns:
+            accel_df[col] = accel_df[col].clip(lower=-20, upper=20)
+    print("DATA CLEANING: Accelerometer data clipped to [-20, 20] m/s² to remove physical anomalies.")
+    
+    # DATA CLEANING: Accelerometer - Interpolate missing values
+    accel_df[accel_cols] = accel_df.groupby('trip_id')[accel_cols].transform(
+        lambda x: x.interpolate(method='linear', limit_direction='both')
+    )
+    print("DATA CLEANING: Accelerometer data interpolated to fill missing values.")
+
     accel_df["timestamp"] = pd.to_datetime(
         accel_df["timestamp"], utc=True, errors="coerce"
     ).dt.floor("s")
@@ -66,7 +79,9 @@ def compute_motion_metrics(accel_df: pd.DataFrame) -> pd.DataFrame:
 def compute_audio_metrics(audio_df: pd.DataFrame) -> pd.DataFrame:
     df = audio_df.copy()
 
+    # DATA CLEANING: Audio - Clip to [30, 120] dB to remove noise floor and sensor outliers
     df["audio_level_clipped"] = df["audio_level"].clip(lower=30, upper=120)
+    print("DATA CLEANING: Audio levels clipped to [30, 120] dB range to remove noise floor and sensor outliers")
 
     # Use groupby + time-based rolling on a MultiIndex, then align by position.
     rolled = (

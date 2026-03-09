@@ -25,6 +25,22 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     goals   = pd.read_csv(DATA_DIR / "earnings" / "driver_goals.csv")
     vel_log = pd.read_csv(DATA_DIR / "earnings" / "earnings_velocity_log.csv")
     drivers = pd.read_csv(DATA_DIR / "drivers"  / "drivers.csv")
+    
+    # DATA CLEANING: Earnings - Remove negative earnings and unrealistic values
+    if 'cumulative_earnings' in vel_log.columns:
+        vel_log['cumulative_earnings'] = vel_log['cumulative_earnings'].clip(lower=0)
+        print("DATA CLEANING: Earnings clipped to remove negative values")
+    
+    # DATA CLEANING: Goals - Ensure target earnings are positive and realistic
+    if 'target_earnings' in goals.columns:
+        goals['target_earnings'] = goals['target_earnings'].clip(lower=50, upper=10000)
+        print("DATA CLEANING: Target earnings clipped to [50, 10000] range for realism")
+    
+    # DATA CLEANING: Time - Remove invalid elapsed hours
+    if 'elapsed_hours' in vel_log.columns:
+        vel_log['elapsed_hours'] = vel_log['elapsed_hours'].clip(lower=0, upper=24)
+        print("DATA CLEANING: Elapsed hours clipped to [0, 24] range")
+    
     return goals, vel_log, drivers
 
 # Timestamp parsing

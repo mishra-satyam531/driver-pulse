@@ -43,7 +43,7 @@
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 91.0,
     "audio_class": "argument",
-    "llm_insight": "Alex, a stressful environment was detected due to a high audio level (91 dB) during an argument."
+    "llm_insight": "Alex, it sounds like you were in a stressful situation with a high level of noise (91 dB) due to an argument."
   },
   {
     "flag_id": "FLAG003",
@@ -89,7 +89,7 @@
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 95.5,
     "audio_class": "argument",
-    "llm_insight": "Sarah, it appears there was a sudden stop with a force equivalent to 6.0 m/s^2, and the environment was noisy with a high audio level of 96 dB."
+    "llm_insight": "Sarah, I've detected some intense braking and stressful audio levels during your morning drive."
   },
   {
     "flag_id": "FLAG005",
@@ -112,6 +112,6 @@
     "Vertical_Jerk": 0.0,
     "Audio_Rolling_15s": 95.5,
     "audio_class": "argument",
-    "llm_insight": "John, a stressful argument is occurring in the vehicle."
+    "llm_insight": "John, a stressful argument was heard with a high audio level of 96 dB."
   }
 ]
