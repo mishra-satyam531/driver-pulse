@@ -272,7 +272,6 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
 
 def render_earnings_view(velocity_df: pd.DataFrame, goals_df: pd.DataFrame, drivers_df: pd.DataFrame) -> None:
     lang_name = st.session_state.get("selected_lang_name", "English")
-    dm = st.session_state.get("dark_mode", False)
     
     if velocity_df.empty or goals_df.empty:
         st.info("No earnings data available.")
