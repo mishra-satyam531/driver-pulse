@@ -1,0 +1,10 @@
+# Ignored Output files/models
+data/processed_outputs/models/*.pkl
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints
+
+# OS Files
+.DS_Store

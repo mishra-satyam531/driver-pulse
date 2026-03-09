@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  driver-pulse:
+    build: .
+    container_name: driver-pulse
+    ports:
+      - "8501:8501"
+    environment:
+      - OPENAI_API_KEY
+      - OPENAI_BASE_URL
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
