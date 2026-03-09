@@ -9,14 +9,19 @@ from openai import OpenAI
 import plotly.express as px
 import plotly.graph_objects as go
 from deep_translator import GoogleTranslator
+
+import sys
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parents[1]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
 from backend.driver_insights import API_KEY, BASE_URL
 
-
-BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
 
-FLAGGED_MOMENTS_CSV = DATA_DIR / "processed_outputs" / "flagged_moments.csv"
-TRIP_INSIGHTS_JSON = DATA_DIR / "processed_outputs" / "trip_insights_final.json"
+FLAGGED_MOMENTS_CSV = BASE_DIR / "processed_outputs" / "flagged_moments.csv"
+TRIP_INSIGHTS_JSON = BASE_DIR / "processed_outputs" / "trip_insights_final.json"
 EARNINGS_VELOCITY_CSV = DATA_DIR / "earnings" / "earnings_velocity_log.csv"
 DRIVER_GOALS_CSV = DATA_DIR / "earnings" / "driver_goals.csv"
 DRIVERS_CSV = DATA_DIR / "drivers" / "drivers.csv"
