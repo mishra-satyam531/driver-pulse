@@ -152,7 +152,15 @@ def apply_stress_rules(fused_df: pd.DataFrame) -> pd.DataFrame:
     return flagged[existing_cols]
 
 
-def export_flagged(flagged_df: pd.DataFrame) -> None:
+def export_flagged(flagged_df: pd.DataFrame) -> pd.DataFrame:
+    """Export flagged moments to JSON and CSV files with Uber compliance schema.
+    
+    Args:
+        flagged_df: DataFrame with flagged stress events
+        
+    Returns:
+        pd.DataFrame: Final processed DataFrame with all compliance columns
+    """
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     if flagged_df.empty:
@@ -371,22 +379,31 @@ def export_flagged(flagged_df: pd.DataFrame) -> None:
     # Also export as CSV
     csv_path = OUTPUT_DIR / "flagged_moments.csv"
     aggregated.to_csv(csv_path, index=False)
+    
+    # Return the final DataFrame for API use
+    return aggregated
 
 
-def run_stress_moment_model() -> None:
+def run_stress_moment_model() -> pd.DataFrame:
     """Main execution function: load sensor data, process stress events, and export results.
     
     This function assumes sensor CSV files already exist in data/sensor_data/ directory.
     To generate initial data, run seed_stress_data.py separately.
+    
+    Returns:
+        pd.DataFrame: Processed and aggregated stress events DataFrame
     """
     accel_df, audio_df = load_sensor_data()
     accel_metrics = compute_motion_metrics(accel_df)
     audio_metrics = compute_audio_metrics(audio_df)
     fused = fuse_sensors(accel_metrics, audio_metrics)
     flagged = apply_stress_rules(fused)
-    export_flagged(flagged)
+    
+    # Export to files (keeping compliance logic intact) and get final DataFrame
+    final_df = export_flagged(flagged)
+    
+    return final_df
 
 
 if __name__ == "__main__":
     run_stress_moment_model()
-
