@@ -1,15 +1,12 @@
 # Driver Pulse
+> **Real-time telematics analytics engine for Uber drivers — stress detection, earnings forecasting, and empathetic AI coaching.**
 
 ## Demo & Deployment
-- **Demo Video:** [Insert Unlisted YouTube or Google Drive URL]
-- **Live Application:** [Insert Streamlit / Cloud deployment URL]
-
-**Optional Judge Login**
-- Username: judge@uber.com  
-- Password: hackathon2026
+- **Demo Video:** [https://drive.google.com/file/d/1D5KNUXIQk0hExsqL1zQyBdQxZHp8uy93/view?usp=sharing]
+- **Live Application:** [https://driver-pulse-uber-hackathon.streamlit.app/]
 
 **Note to Judges:**  
-The application may take **30–60 seconds to start** on free-tier hosting.
+All backend outputs are pre-generated and committed to the repo. The dashboard loads instantly with no pipeline setup required. To regenerate outputs from scratch, see the [Backend Pipelines](#backend-pipelines) section.
 
 ---
 
@@ -110,136 +107,142 @@ The frontend **does not run ML models** — it simply reads **structured outputs
 
 # Project Structure
 
-
-backend/
-stress_model.py
-earnings_velocity.py
-goal_predictor.py
-driver_insights.py
-earnings_insights.py
-
-utils/
-seed_stress_data.py
-
-data/
-sensor_data/
-processed_outputs/
-earnings/
-drivers/
-
-app/
-driver_pulse_app.py
-
-README.md
-design_doc.md
-progress_log.md
-requirements.txt
-
+```
+driver-pulse/
+├── app/
+│   └── driver_pulse_app.py        # Streamlit dashboard (5 tabs)
+├── backend/
+│   ├── stress_model.py            # Physics-based stress detection engine
+│   ├── earnings_velocity.py       # Real-time earnings velocity calculator
+│   ├── goal_predictor.py          # Random Forest ML goal predictor
+│   ├── driver_insights.py         # Groq LLM safety insight generator
+│   ├── earnings_insights.py       # Groq LLM earnings coaching generator
+│   └── api.py                     # FastAPI wrapper exposing backend endpoints
+├── data/
+│   ├── sensor_data/               # Raw accelerometer + audio CSVs
+│   ├── processed_outputs/         # All backend JSON/CSV outputs
+│   ├── earnings/                  # Earnings velocity logs + driver goals
+│   └── drivers/                   # Driver metadata (name, city, rating)
+├── utils/
+│   └── seed_stress_data.py        # Generates synthetic telematics data
+├── architecture.md                # System architecture diagram (Mermaid)
+├── design_doc.md                  # Full design document
+├── progress_log.md                # Development decisions log
+├── requirements.txt
+└── README.md
+```
 
 ---
 
 # Backend Pipelines
 
-## Stress Detection
+> **Note:** Pre-generated outputs are already committed. Run these only if you want to regenerate from scratch.
 
-Run:
+## 0. Seed Sensor Data
 
+```bash
+python utils/seed_stress_data.py
+```
 
-python backend/stress_model.py
-
-
-Output:
-
-
-data/processed_outputs/flagged_moments.json
-data/processed_outputs/stress_analysis_output.json
-
+Generates `data/sensor_data/accelerometer_data.csv` and `audio_intensity_data.csv`.
 
 ---
 
-## Earnings Velocity
+## 1. Stress Detection
 
-Run:
-
-
-python backend/earnings_velocity.py
-
-
-Output:
-
-
-data/processed_outputs/earnings_velocity_output.json
-data/processed_outputs/trip_summaries.csv
-
-
----
-
-## ML Goal Predictor
-
-Run:
-
-
-python backend/goal_predictor.py
-
-
-This script automatically:
-
-- Trains a Random Forest model
-- Saves `goal_model.pkl`
-- Saves `goal_label_encoder.pkl`
+```bash
+python -m backend.stress_model
+```
 
 Outputs:
-
-
-goal_predictions_output.json
-
-
----
-
-## Safety LLM Insights
-
-Run:
-
-
-python backend/driver_insights.py
-
-
-Output:
-
-
-trip_insights_final.json
-
+```
+data/processed_outputs/flagged_moments.json
+data/processed_outputs/flagged_moments.csv
+```
 
 ---
 
-## Earnings Coaching Insights
+## 2. Earnings Velocity
 
-Run:
+```bash
+python -m backend.earnings_velocity
+```
 
+Outputs:
+```
+data/processed_outputs/earnings_velocity_output.json
+data/processed_outputs/trip_summaries.csv
+```
 
-python backend/earnings_insights.py
+---
 
+## 3. ML Goal Predictor
 
-Output:
+```bash
+python -m backend.goal_predictor
+```
 
+Trains a Random Forest classifier (300 trees, 5-fold stratified CV), saves model artifacts, and outputs:
+```
+data/processed_outputs/goal_predictions_output.json
+data/processed_outputs/models/goal_model.pkl
+data/processed_outputs/models/goal_label_encoder.pkl
+```
 
-earnings_insights_final.json
+---
+
+## 4. Safety LLM Insights
+
+```bash
+python -m backend.driver_insights
+```
+
+Calls Groq `llama-3.1-8b-instant` for medium/high severity stress events. Output:
+```
+data/processed_outputs/trip_insights_final.json
+```
+
+---
+
+## 5. Earnings Coaching Insights
+
+```bash
+python -m backend.earnings_insights
+```
+
+Generates personalized earnings coaching per driver. Output:
+```
+data/processed_outputs/earnings_insights_final.json
+```
 
 
 ---
 
 # Running the Dashboard
 
-Start the frontend:
+**Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
 
-
+**Start the app:**
+```bash
 streamlit run app/driver_pulse_app.py
+```
 
-
-Open in browser:
-
-
+**Open in browser:**
+```
 http://localhost:8501
+```
+
+The dashboard has 5 tabs:
+| Tab | Description |
+|-----|-------------|
+| Trip Summary | Fleet-level stress event overview + raw data export |
+| Flagged Moments | Per-driver incident reports with GPS map + LLM insights + TTS |
+| Earnings Velocity | Real-time earnings pace, goal gauge, and end-of-shift forecast |
+| Test API | Live interactive model testing with JSON output |
+| System Architecture | Engine documentation, formulas, and design rationale |
 
 
 ---
@@ -274,21 +277,19 @@ This helps demonstrate edge-case handling.
 
 ---
 
-# Next Steps
+# Key Design Decisions
 
-### Frontend
-- Improve dashboard design
-- Add additional charts
-- Improve mobile responsiveness
+### Privacy-First Audio Processing
+Raw audio **never leaves the device**. The edge node extracts only a rolling decibel mean — a single anonymous number. The cloud receives `85.2 dB`, not a conversation recording.
 
-### ML Team
-- Tune thresholds in stress detection
-- Improve goal prediction accuracy
-- Add new behavioral features
+### Offline Resilience
+Sensor batches are queued locally if connectivity drops. The backend uses `pd.merge_asof` with absolute Unix timestamps so delayed or out-of-order events still produce accurate stress insights.
 
-### Demo Preparation
-Record a **2–3 minute walkthrough video**:
+### Explainable Outputs
+Every flagged event includes `signal_type`, `raw_value`, `threshold`, and `explanation` — full traceability from sensor to decision. No black-box flags.
 
-0:00–0:30 – Architecture overview  
-0:30–2:00 – Live dashboard walkthrough  
-2:00–3:00 – Explain backend outputs and models
+### LLM as Translator, Not Decider
+The Groq LLM layer never classifies events — it only translates structured sensor output into empathetic driver language. Rule-based logic stays in Python; the model handles tone.
+
+### Battery-Aware Architecture
+Heavy compute (Random Forest, LLM) runs in the cloud. The phone sends small batched payloads every 30 seconds and renders a read-only JSON snapshot — no continuous WebSocket drain. 
