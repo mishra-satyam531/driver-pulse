@@ -20,8 +20,8 @@ from backend.driver_insights import API_KEY, BASE_URL
 
 DATA_DIR = BASE_DIR / "data"
 
-FLAGGED_MOMENTS_CSV = BASE_DIR / "processed_outputs" / "flagged_moments.csv"
-TRIP_INSIGHTS_JSON = BASE_DIR / "processed_outputs" / "trip_insights_final.json"
+FLAGGED_MOMENTS_CSV = DATA_DIR / "processed_outputs" / "flagged_moments.csv"
+TRIP_INSIGHTS_JSON = DATA_DIR / "processed_outputs" / "trip_insights_final.json"
 EARNINGS_VELOCITY_CSV = DATA_DIR / "earnings" / "earnings_velocity_log.csv"
 DRIVER_GOALS_CSV = DATA_DIR / "earnings" / "driver_goals.csv"
 DRIVERS_CSV = DATA_DIR / "drivers" / "drivers.csv"

@@ -13,8 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 # Import existing processing functions
-from backend.stress_model import run_stress_moment_model
-from backend.earnings_velocity import run_earnings_velocity_model
+from stress_model import run_stress_moment_model
+from earnings_velocity import run_earnings_velocity_model
 
 # Global cache variables
 _stress_events_cache: List[Dict[str, Any]] = []
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     
     # Run the API server
     uvicorn.run(
-        app,
+        "api:app",
         host="127.0.0.1",
         port=8000,
         reload=True,
