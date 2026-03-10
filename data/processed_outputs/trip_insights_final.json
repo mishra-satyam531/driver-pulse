@@ -51,7 +51,7 @@
     "raw_value": "6.72 m/s^2, 95.0 dB",
     "threshold": "4.0 m/s^2, 85 dB",
     "event_label": "CONFLICT_MOMENT",
-    "llm_insight": "Rahul, there was a sudden, forceful deceleration of the vehicle, which may have been disconcerting. Additionally, there was a prolonged exposure to high audio levels, potentially contributing to stress."
+    "llm_insight": "Rahul, there was a sharp braking event with a deceleration of 6.7 m/s^2, and high audio levels were sustained in the environment."
   },
   {
     "flag_id": "FLAG003",
@@ -78,7 +78,7 @@
     "raw_value": "94.0 dB",
     "threshold": "85 dB",
     "event_label": "AUDIO_SPIKE",
-    "llm_insight": "Rahul, a highly stressful environment with a loud argument has been detected, reaching 94 dB levels."
+    "llm_insight": "Rahul, a high audio situation was detected during an argument, which may have been stressful for both you and your passengers."
   },
   {
     "flag_id": "FLAG004",
@@ -105,6 +105,6 @@
     "raw_value": "4.93 m/s^2, 96.0 dB",
     "threshold": "4.0 m/s^2, 85 dB",
     "event_label": "CONFLICT_MOMENT",
-    "llm_insight": "Priya, it seems there was a sudden braking event with a strong deceleration of 4.9 m/s^2. Additionally, the environment was quite loud, potentially disrupting the driving experience."
+    "llm_insight": "Priya, I'm noticing you had a sudden, forceful braking maneuver (4.9 m/s^2) and were in a stressful environment with high audio levels."
   }
 ]

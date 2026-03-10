@@ -2,12 +2,16 @@ import json
 from pathlib import Path
 from typing import Dict, List, Any
 import os
+from dotenv import load_dotenv
 
 import pandas as pd
 from openai import OpenAI
 
-API_KEY = os.getenv("OPENAI_API_KEY", "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")
+load_dotenv()
+
+API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
+
 # File paths
 BASE_DIR = Path(__file__).resolve().parents[1]
 INPUT_PATH = BASE_DIR / "data" / "processed_outputs" / "flagged_moments.json"
