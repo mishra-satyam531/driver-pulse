@@ -44,13 +44,12 @@ def load_sensor_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     )
     print("DATA CLEANING: Accelerometer data interpolated to fill missing values.")
 
-    # Explicit timestamp conversion for both dataframes
-    accel_df["timestamp"] = pd.to_datetime(accel_df["timestamp"], utc=True, errors="coerce")
-    audio_df["timestamp"] = pd.to_datetime(audio_df["timestamp"], utc=True, errors="coerce")
-    
-    # Create exact-match merge columns BEFORE any formatting/rounding
-    accel_df['merge_time'] = accel_df['timestamp'].dt.round('s')
-    audio_df['merge_time'] = audio_df['timestamp'].dt.round('s')
+    accel_df["timestamp"] = pd.to_datetime(
+        accel_df["timestamp"], utc=True, errors="coerce"
+    ).dt.floor("s")
+    audio_df["timestamp"] = pd.to_datetime(
+        audio_df["timestamp"], utc=True, errors="coerce"
+    ).dt.floor("s")
 
     accel_df = accel_df.dropna(subset=["timestamp"])
     audio_df = audio_df.dropna(subset=["timestamp"])
@@ -97,34 +96,25 @@ def compute_audio_metrics(audio_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def fuse_sensors(accel_df: pd.DataFrame, audio_df: pd.DataFrame) -> pd.DataFrame:
-    # 1. Standardize trip_ids so 'TRIP001' and 'trip_101' don't break the merge
-    accel_df['trip_id'] = accel_df['trip_id'].astype(str).str.lower().str.replace('trip0', 'trip_')
-    audio_df['trip_id'] = audio_df['trip_id'].astype(str).str.lower().str.replace('trip0', 'trip_')
+    accel_sorted = accel_df.sort_values(["trip_id", "timestamp"]).reset_index(drop=True)
+    audio_sorted = audio_df.sort_values(["trip_id", "timestamp"]).reset_index(drop=True)
 
-    # 2. Select only needed audio columns
-    audio_merge_cols = ["trip_id", "merge_time", "Audio_Rolling_15s", "audio_class"]
-    audio_subset = audio_df[[c for c in audio_merge_cols if c in audio_df.columns]].copy()
+    audio_cols = [
+        "trip_id",
+        "timestamp",
+        "Audio_Rolling_15s",
+        "audio_class",
+    ]
+    audio_subset = audio_sorted[audio_cols]
 
-    # 3. Sort by time (STRICT REQUIREMENT for merge_asof)
-    accel_df = accel_df.sort_values('merge_time')
-    audio_subset = audio_subset.sort_values('merge_time')
-
-    # 4. PROFESSIONAL SENSOR FUSION: Snap the closest audio reading to the accel reading
     fused = pd.merge_asof(
-        accel_df,
+        accel_sorted,
         audio_subset,
-        on='merge_time',
-        by='trip_id',
-        direction='backward' # Uses the most recent audio reading for that exact second
+        on="timestamp",
+        by="trip_id",
+        direction="nearest",
+        tolerance=pd.Timedelta(seconds=60),
     )
-    
-    # 5. Clean up temporary columns
-    fused = fused.drop(columns=['merge_time'])
-    
-    # 6. Forward-fill any gaps so the audio score persists across the whole 30-second window
-    fused['Audio_Rolling_15s'] = fused.groupby('trip_id')['Audio_Rolling_15s'].ffill().fillna(50.0)
-    fused['audio_class'] = fused.groupby('trip_id')['audio_class'].ffill().fillna('normal')
-    
     return fused
 
 
