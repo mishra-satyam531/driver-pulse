@@ -100,7 +100,7 @@ def fuse_sensors(accel_df: pd.DataFrame, audio_df: pd.DataFrame) -> pd.DataFrame
     audio_sorted = audio_df.sort_values(["trip_id", "timestamp"]).reset_index(drop=True)
 
     audio_cols = [
-        "trip_id",
+        "driver_id",
         "timestamp",
         "Audio_Rolling_15s",
         "audio_class",
@@ -111,7 +111,7 @@ def fuse_sensors(accel_df: pd.DataFrame, audio_df: pd.DataFrame) -> pd.DataFrame
         accel_sorted,
         audio_subset,
         on="timestamp",
-        by="trip_id",
+        by="driver_id",
         direction="nearest",
         tolerance=pd.Timedelta(seconds=60),
     )
@@ -283,7 +283,8 @@ def export_flagged(flagged_df: pd.DataFrame) -> pd.DataFrame:
     )
 
     hj = aggregated["Horizontal_Jerk"].astype(float).round(1)
-    ar = aggregated["Audio_Rolling_15s"].fillna(0).astype(float).round(0).astype(int)
+    ar_series = aggregated["Audio_Rolling_15s"].fillna(0).astype(float)
+    ar = ar_series.round(0).astype(int)
     aggregated["explanation"] = np.where(
         aggregated["flag_type"].eq("conflict_moment"),
         "Combined signal: Harsh braking (" + hj.astype(str) + " m/s^2) + sustained high audio (" + ar.astype(str) + " dB)",
