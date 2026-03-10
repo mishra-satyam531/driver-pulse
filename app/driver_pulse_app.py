@@ -16,6 +16,13 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
+from backend.goal_predictor import MODEL_PATH, run_goal_predictor_model
+
+# Check if model exists; if not, train it immediately
+if not MODEL_PATH.exists():
+    with st.spinner("Initializing ML Engine for the first time..."):
+        run_goal_predictor_model()
+
 from backend.driver_insights import API_KEY, BASE_URL
 
 DATA_DIR = BASE_DIR / "data"
