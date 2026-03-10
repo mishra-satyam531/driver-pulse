@@ -283,8 +283,7 @@ def export_flagged(flagged_df: pd.DataFrame) -> pd.DataFrame:
     )
 
     hj = aggregated["Horizontal_Jerk"].astype(float).round(1)
-    # Fill missing audio with a neutral cabin noise floor (60dB) instead of 0 to avoid "silent" bugs
-    ar_series = aggregated["Audio_Rolling_15s"].fillna(60).astype(float)
+    ar_series = aggregated["Audio_Rolling_15s"].fillna(0).astype(float)
     ar = ar_series.round(0).astype(int)
     aggregated["explanation"] = np.where(
         aggregated["flag_type"].eq("conflict_moment"),

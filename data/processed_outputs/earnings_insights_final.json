@@ -16,7 +16,7 @@
     "raw_value": 69.47,
     "event_label": "AT_RISK",
     "threshold": 360.0,
-    "earnings_llm_insight": "\"Hey Aman, you're 31.7% through your goal, which is impressive. Let's stay on track, you've got a solid foundation - keep that pace and we'll get you to ₹1643.0 in no time!\""
+    "earnings_llm_insight": "\"Aman, you're halfway to your goal already, but let's pick up the pace - we've got a chance to get back on track and hit that ₹1643 target. Let's focus on delivering more rides and getting closer to your goal, you can do it!\""
   },
   {
     "driver_id": "DRV028",
@@ -35,7 +35,7 @@
     "raw_value": 70.8,
     "event_label": "AT_RISK",
     "threshold": 371.14,
-    "earnings_llm_insight": "\"Hey Rakesh, you're halfway to your goal of ₹1564.0, but let's tweak your pace a bit to stay on track. Keep pushing forward, and you can easily make up for the slight gap – you've got this!\""
+    "earnings_llm_insight": "\"Hey Rakesh, you're doing great so far, but let's aim to boost your earnings. Keep focusing, and you've got this - you're just a little off track, but you can still catch up and hit your goal.\""
   },
   {
     "driver_id": "DRV162",
@@ -54,7 +54,7 @@
     "raw_value": 69.87,
     "event_label": "AT_RISK",
     "threshold": 931.85,
-    "earnings_llm_insight": "\"Hey Jayant, you're on a roll! Your current earnings of ₹524.0 are right on track to reach your goal of ₹1782.0, which is a 29.4% progress so far - keep it up, you're doing great!\""
+    "earnings_llm_insight": "\"Hey Jayant, nice job staying on track! You've covered 29.4% of your goal, and it looks like your current pace will help you reach ₹1782.0 on schedule - keep up the great work!\""
   },
   {
     "driver_id": "DRV195",
@@ -73,7 +73,7 @@
     "raw_value": 70.4,
     "event_label": "AT_RISK",
     "threshold": 706.96,
-    "earnings_llm_insight": "\"Hey Sumit, you're cruising at a great pace - 32.8% of your goal already achieved. Keep up the fantastic work and you'll be on your way to reaching your target!\""
+    "earnings_llm_insight": "\"Hey Sumit, you're cruising along at 32.8% of your goal - that's a great pace! Keep it up and you'll be on your way to reaching ₹1612.0 in no time.\""
   },
   {
     "driver_id": "DRV018",
@@ -92,6 +92,6 @@
     "raw_value": 68.93,
     "event_label": "AT_RISK",
     "threshold": 446.71,
-    "earnings_llm_insight": "\"Hey Manish, you're crushing it - 30.9% of your goal already reached within this timeframe! Keep the momentum going, you're pacing ahead of schedule.\""
+    "earnings_llm_insight": "\"Hey Manish, you're cruising ahead of pace! Keep it up, you're 30.9% towards your goal with ₹517 earned so far - that's impressive.\""
   }
 ]
