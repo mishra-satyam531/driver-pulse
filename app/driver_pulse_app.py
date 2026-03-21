@@ -367,7 +367,10 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
             sc = "#dc2626" if sev == "HIGH" else ("#f59e0b" if sev == "MEDIUM" else "#fcd34d")
             text_color = "white" if sev == "HIGH" else "#111827"
             
-            cols[0].markdown(f"<div style='background:{sc}; color:{text_color}; padding:4px; border-radius:6px; text-align:center; font-weight:700;'>{sev}</div>", unsafe_allow_html=True)
+            # Add halo class based on severity
+            halo_class = "halo-red" if sev == "HIGH" else ("halo-amber" if sev == "MEDIUM" else "")
+            
+            cols[0].markdown(f"<div class='{halo_class}' style='background:{sc}; color:{text_color}; padding:4px; border-radius:6px; text-align:center; font-weight:700;'>{sev}</div>", unsafe_allow_html=True)
             cols[1].markdown(f"**{row['flag_type'].replace('_', ' ').title()}** | {row['timestamp'].strftime('%H:%M:%S')}")
             cols[1].markdown(f"<span style='font-size: 0.8rem; color: #6b7280;'>Location: {row['gps_lat']:.4f}, {row['gps_lon']:.4f}</span>", unsafe_allow_html=True)
             
@@ -803,6 +806,39 @@ def main() -> None:
         }}
         div[role='radiogroup'] span {{
             font-size: 1.15rem !important;
+        }}
+        
+        /* Ambient Safety Halo Animations */
+        @keyframes pulse-red {{
+            0% {{
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+            }}
+            70% {{
+                box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+            }}
+            100% {{
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+            }}
+        }}
+        
+        @keyframes pulse-amber {{
+            0% {{
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+            }}
+            70% {{
+                box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+            }}
+            100% {{
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+            }}
+        }}
+        
+        .halo-red {{
+            animation: pulse-red 1.5s infinite;
+        }}
+        
+        .halo-amber {{
+            animation: pulse-amber 2s infinite;
         }}
         </style>
     """, unsafe_allow_html=True)
