@@ -16,6 +16,9 @@ from contextlib import asynccontextmanager
 from stress_model import run_stress_moment_model
 from earnings_velocity import run_earnings_velocity_model
 
+BASE_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = BASE_DIR / "data"
+
 # Global cache variables
 _stress_events_cache: List[Dict[str, Any]] = []
 _earnings_status_cache: List[Dict[str, Any]] = []
@@ -138,6 +141,65 @@ def get_earnings_status() -> List[Dict[str, Any]]:
 def health_check():
     """Health check endpoint for monitoring."""
     return {"status": "healthy", "api": "Driver Pulse API"}
+
+
+@app.get("/api/trip_insights")
+def get_trip_insights() -> List[Dict[str, Any]]:
+    """
+    Get trip insights with LLM analysis.
+    
+    Returns:
+        List of dictionaries containing trip insights and driver analysis
+    """
+    try:
+        trip_insights_path = DATA_DIR / "processed_outputs" / "trip_insights_final.json"
+        if not trip_insights_path.exists():
+            return []
+        
+        with open(trip_insights_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return data if isinstance(data, list) else []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get trip insights: {str(e)}")
+
+
+@app.get("/api/driver_goals")
+def get_driver_goals() -> List[Dict[str, Any]]:
+    """
+    Get driver goals and targets.
+    
+    Returns:
+        List of dictionaries containing driver goals information
+    """
+    try:
+        driver_goals_path = DATA_DIR / "earnings" / "driver_goals.csv"
+        if not driver_goals_path.exists():
+            return []
+        
+        df = pd.read_csv(driver_goals_path)
+        return df.to_dict(orient='records')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get driver goals: {str(e)}")
+
+
+@app.get("/api/drivers")
+def get_drivers() -> List[Dict[str, Any]]:
+    """
+    Get driver information and profiles.
+    
+    Returns:
+        List of dictionaries containing driver information
+    """
+    try:
+        drivers_path = DATA_DIR / "drivers" / "drivers.csv"
+        if not drivers_path.exists():
+            return []
+        
+        df = pd.read_csv(drivers_path)
+        return df.to_dict(orient='records')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get drivers: {str(e)}")
 
 
 if __name__ == "__main__":

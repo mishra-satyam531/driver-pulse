@@ -9,6 +9,7 @@ from openai import OpenAI
 import plotly.express as px
 import plotly.graph_objects as go
 from deep_translator import GoogleTranslator
+import requests
 
 import sys
 from pathlib import Path
@@ -36,81 +37,106 @@ DRIVERS_CSV = DATA_DIR / "drivers" / "drivers.csv"
 
 @st.cache_data(ttl=2)
 def load_flagged_moments() -> pd.DataFrame:
-    if not FLAGGED_MOMENTS_CSV.exists():
+    try:
+        response = requests.get("http://127.0.0.1:8000/api/stress_events", timeout=10)
+        response.raise_for_status()
+        df = pd.DataFrame(response.json())
+        
+        # Keep all existing data cleaning logic exactly as it was
+        df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
+        if "combined_score" in df.columns:
+            df["combined_score"] = df["combined_score"].fillna(0)
+        if "motion_score" in df.columns:
+            df["motion_score"] = df["motion_score"].fillna(0)
+        if "audio_score" in df.columns:
+            df["audio_score"] = df["audio_score"].fillna(0)
+        return df
+    except requests.exceptions.RequestException as e:
+        st.warning(f"Unable to connect to API server: {str(e)}")
         return pd.DataFrame()
-    df = pd.read_csv(FLAGGED_MOMENTS_CSV)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
-    if "combined_score" in df.columns:
-        df["combined_score"] = df["combined_score"].fillna(0)
-    if "motion_score" in df.columns:
-        df["motion_score"] = df["motion_score"].fillna(0)
-    if "audio_score" in df.columns:
-        df["audio_score"] = df["audio_score"].fillna(0)
-    return df
 
 
 @st.cache_data(ttl=2)
 def load_trip_insights() -> pd.DataFrame:
-    if not TRIP_INSIGHTS_JSON.exists():
+    try:
+        response = requests.get("http://127.0.0.1:8000/api/trip_insights", timeout=10)
+        response.raise_for_status()
+        df = pd.DataFrame(response.json())
+        return df
+    except requests.exceptions.RequestException as e:
+        st.warning(f"Unable to connect to API server: {str(e)}")
         return pd.DataFrame()
-    records = json.loads(TRIP_INSIGHTS_JSON.read_text(encoding="utf-8"))
-    return pd.DataFrame(records)
 
 
 @st.cache_data(ttl=2)
 def load_earnings_velocity() -> pd.DataFrame:
-    if not EARNINGS_VELOCITY_CSV.exists():
-        return pd.DataFrame()
-    df = pd.read_csv(EARNINGS_VELOCITY_CSV)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
-    df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
-    
-    import numpy as np
-    new_rows = []
-    for driver in df['driver_id'].dropna().unique()[:5]: 
-        base_time = pd.Timestamp("2024-02-06 07:00:00")
-        for i in range(15):
-            t = base_time + pd.Timedelta(minutes=30*i)
-            earned = 100 + (30 * i) + np.random.randint(-10, 20)
-            elapsed = 0.5 * (i + 1)
-            cur_v = earned / elapsed
-            new_rows.append({
-                "log_id": f"VEL_GEN_{driver}_{i}",
-                "driver_id": driver,
-                "date": "2024-02-06",
-                "timestamp": t,
-                "cumulative_earnings": earned,
-                "elapsed_hours": elapsed,
-                "current_velocity": cur_v,
-                "target_velocity": 175.0,
-                "velocity_delta": cur_v - 175.0,
-                "trips_completed": i + 1,
-                "forecast_status": "ahead" if cur_v > 175 else "at_risk"
-            })
-    
-    if new_rows:
-        gen_df = pd.DataFrame(new_rows)
-        df = df[~df['log_id'].astype(str).str.startswith("VEL_GEN_")]
-        df = pd.concat([df, gen_df], ignore_index=True)
+    try:
+        response = requests.get("http://127.0.0.1:8000/api/earnings_status", timeout=10)
+        response.raise_for_status()
+        df = pd.DataFrame(response.json())
         
-    df = df.sort_values("timestamp")
-    df["timestamp"] = df["timestamp"].dt.strftime("%H:%M")
-    return df
+        # Keep all existing data cleaning logic exactly as it was
+        df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
+        df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
+        
+        import numpy as np
+        new_rows = []
+        for driver in df['driver_id'].dropna().unique()[:5]: 
+            base_time = pd.Timestamp("2024-02-06 07:00:00")
+            for i in range(15):
+                t = base_time + pd.Timedelta(minutes=30*i)
+                earned = 100 + (30 * i) + np.random.randint(-10, 20)
+                elapsed = 0.5 * (i + 1)
+                cur_v = earned / elapsed
+                new_rows.append({
+                    "log_id": f"VEL_GEN_{driver}_{i}",
+                    "driver_id": driver,
+                    "date": "2024-02-06",
+                    "timestamp": t,
+                    "cumulative_earnings": earned,
+                    "elapsed_hours": elapsed,
+                    "current_velocity": cur_v,
+                    "target_velocity": 175.0,
+                    "velocity_delta": cur_v - 175.0,
+                    "trips_completed": i + 1,
+                    "forecast_status": "ahead" if cur_v > 175 else "at_risk"
+                })
+        
+        if new_rows:
+            gen_df = pd.DataFrame(new_rows)
+            df = df[~df['log_id'].astype(str).str.startswith("VEL_GEN_")]
+            df = pd.concat([df, gen_df], ignore_index=True)
+            
+        df = df.sort_values("timestamp")
+        df["timestamp"] = df["timestamp"].dt.strftime("%H:%M")
+        return df
+    except requests.exceptions.RequestException as e:
+        st.warning(f"Unable to connect to API server: {str(e)}")
+        return pd.DataFrame()
 
 
 @st.cache_data(ttl=2)
 def load_driver_goals() -> pd.DataFrame:
-    if not DRIVER_GOALS_CSV.exists():
+    try:
+        response = requests.get("http://127.0.0.1:8000/api/driver_goals", timeout=10)
+        response.raise_for_status()
+        df = pd.DataFrame(response.json())
+        return df
+    except requests.exceptions.RequestException as e:
+        st.warning(f"Unable to connect to API server: {str(e)}")
         return pd.DataFrame()
-    df = pd.read_csv(DRIVER_GOALS_CSV)
-    return df
 
 
-@st.cache_data
+@st.cache_data(ttl=2)
 def load_drivers() -> pd.DataFrame:
-    if not DRIVERS_CSV.exists():
+    try:
+        response = requests.get("http://127.0.0.1:8000/api/drivers", timeout=10)
+        response.raise_for_status()
+        df = pd.DataFrame(response.json())
+        return df
+    except requests.exceptions.RequestException as e:
+        st.warning(f"Unable to connect to API server: {str(e)}")
         return pd.DataFrame()
-    return pd.read_csv(DRIVERS_CSV)
 
 
 def style_severity(value: str) -> str:
