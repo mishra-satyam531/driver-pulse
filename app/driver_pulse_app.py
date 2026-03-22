@@ -367,10 +367,7 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
             sc = "#dc2626" if sev == "HIGH" else ("#f59e0b" if sev == "MEDIUM" else "#fcd34d")
             text_color = "white" if sev == "HIGH" else "#111827"
             
-            # Add halo class based on severity
-            halo_class = "halo-red" if sev == "HIGH" else ("halo-amber" if sev == "MEDIUM" else "")
-            
-            cols[0].markdown(f"<div class='{halo_class}' style='background:{sc}; color:{text_color}; padding:4px; border-radius:6px; text-align:center; font-weight:700;'>{sev}</div>", unsafe_allow_html=True)
+            cols[0].markdown(f"<div style='background:{sc}; color:{text_color}; padding:4px; border-radius:6px; text-align:center; font-weight:700;'>{sev}</div>", unsafe_allow_html=True)
             cols[1].markdown(f"**{row['flag_type'].replace('_', ' ').title()}** | {row['timestamp'].strftime('%H:%M:%S')}")
             cols[1].markdown(f"<span style='font-size: 0.8rem; color: #6b7280;'>Location: {row['gps_lat']:.4f}, {row['gps_lon']:.4f}</span>", unsafe_allow_html=True)
             
@@ -417,45 +414,70 @@ def render_earnings_view(velocity_df: pd.DataFrame, goals_df: pd.DataFrame, driv
     remaining = max(target_hours - elapsed, 0)
     projected = curr + (curr_v * remaining) if curr_v else curr
     
+    # Dynamic Target Velocity Calculation
+    if curr >= target_e:
+        display_target_v = 0.0  # Goal met, no more pace required
+    elif remaining > 0:
+        display_target_v = (target_e - curr) / remaining # Math to find required pace
+    else:
+        display_target_v = target_v # Fallback
+    
     goal_progress_pct = min(int((curr / target_e) * 100), 100) if target_e > 0 else 0
 
     st.markdown("<style>.metric-card { border-radius: 8px; padding: 16px; background-color: #ffffff; border: 1px solid #e5e7eb; color: #111827; display: flex; flex-direction: column; justify-content: space-between; height: 100%; }</style>", unsafe_allow_html=True)
     
     st.write("")
     col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
         st.markdown(f'''
-        <div class="metric-card">
-            <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase;">{get_text('TOTAL EARNINGS TODAY', lang_name)}</div>
-            <div style="font-size: 2rem; font-weight: 700; margin-bottom: 8px;">₹{curr:,.2f}</div>
-            <div style="font-size: 0.85rem; color: #6b7280;">{trips} {get_text('trips completed', lang_name)}</div>
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative; overflow: hidden; height: 100%;">
+            <div style="position: absolute; right: -10px; top: -10px; font-size: 5rem; opacity: 0.04;">💰</div>
+            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                <div style="background: #ecfdf5; padding: 8px; border-radius: 8px; margin-right: 12px;"><span style="font-size: 1.2rem;">💵</span></div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">{get_text('Total Earnings Today', lang_name)}</div>
+            </div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #111827; margin-bottom: 4px;">₹{curr:,.2f}</div>
+            <div style="font-size: 0.85rem; color: #10b981; font-weight: 600;">↑ {trips} {get_text('trips completed', lang_name)}</div>
         </div>
         ''', unsafe_allow_html=True)
     
     with col2:
         st.markdown(f'''
-        <div class="metric-card">
-            <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase;">{get_text('CURRENT VELOCITY', lang_name)}</div>
-            <div style="font-size: 2rem; font-weight: 700; margin-bottom: 8px;">₹{curr_v:,.2f}/hr</div>
-            <div style="font-size: 0.85rem; color: #6b7280;">{get_text('Target:', lang_name)} ₹{target_v:,.2f}/hr</div>
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative; overflow: hidden; height: 100%;">
+            <div style="position: absolute; right: -10px; top: -10px; font-size: 5rem; opacity: 0.04;">⚡</div>
+            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                <div style="background: #eff6ff; padding: 8px; border-radius: 8px; margin-right: 12px;"><span style="font-size: 1.2rem;">⚡</span></div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">{get_text('Current Velocity', lang_name)}</div>
+            </div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #111827; margin-bottom: 4px;">₹{curr_v:,.2f}<span style="font-size: 1rem; color: #6b7280; font-weight: 600;">/hr</span></div>
+            <div style="font-size: 0.85rem; color: #6b7280; font-weight: 500;">{get_text('Target:', lang_name)} <span style="font-weight: 600; color: #4b5563;">₹{display_target_v:,.2f}/hr</span></div>
         </div>
         ''', unsafe_allow_html=True)
 
     with col3:
         st.markdown(f'''
-        <div class="metric-card">
-            <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase;">{get_text('GOAL PROGRESS', lang_name)}</div>
-            <div style="font-size: 2rem; font-weight: 700; margin-bottom: 8px;">{goal_progress_pct}%</div>
-            <div style="font-size: 0.85rem; color: #6b7280;">₹{curr:,.0f} / ₹{target_e:,.0f}</div>
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative; overflow: hidden; height: 100%;">
+            <div style="position: absolute; right: -10px; top: -10px; font-size: 5rem; opacity: 0.04;">🎯</div>
+            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                <div style="background: #f5f3ff; padding: 8px; border-radius: 8px; margin-right: 12px;"><span style="font-size: 1.2rem;">🎯</span></div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">{get_text('Goal Progress', lang_name)}</div>
+            </div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #111827; margin-bottom: 4px;">{goal_progress_pct}%</div>
+            <div style="font-size: 0.85rem; color: #6b7280; font-weight: 500;">₹{curr:,.0f} / ₹{target_e:,.0f}</div>
         </div>
         ''', unsafe_allow_html=True)
 
     with col4:
         st.markdown(f'''
-        <div class="metric-card">
-            <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase;">{get_text('PROJECTED FINAL', lang_name)}</div>
-            <div style="font-size: 2rem; font-weight: 700; margin-bottom: 8px;">₹{projected:,.0f}</div>
-            <div style="font-size: 0.85rem; color: #6b7280;">{get_text('End of shift forecast', lang_name)}</div>
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative; overflow: hidden; height: 100%;">
+            <div style="position: absolute; right: -10px; top: -10px; font-size: 5rem; opacity: 0.04;">🚀</div>
+            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                <div style="background: #fffbeb; padding: 8px; border-radius: 8px; margin-right: 12px;"><span style="font-size: 1.2rem;">🚀</span></div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">{get_text('Projected Final', lang_name)}</div>
+            </div>
+            <div style="font-size: 2.2rem; font-weight: 800; color: #111827; margin-bottom: 4px;">₹{projected:,.0f}</div>
+            <div style="font-size: 0.85rem; color: #d97706; font-weight: 600;">{get_text('End of shift forecast', lang_name)}</div>
         </div>
         ''', unsafe_allow_html=True)
     
@@ -465,39 +487,74 @@ def render_earnings_view(velocity_df: pd.DataFrame, goals_df: pd.DataFrame, driv
     fc_col1, fc_col2 = st.columns([1.5, 1])
     with fc_col1:
         st.markdown(f"### {get_text('Goal Achievement Forecast', lang_name)}")
-        message = "You're on track to meet your goal." if status == "ON_TRACK" else ("You are ahead of your goal." if status == "AHEAD" else "You might fall short of your goal.")
         
-        st.markdown(f"""
-        <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; background: white; margin-top: 16px;">
-            <div style="display: flex; align-items: center; color: #111827; font-weight: 600; font-size: 1.1rem;">
+        # Dynamic message based on real-time math
+        if curr >= target_e and target_e > 0:
+            message = "Incredible! You have successfully achieved your daily earnings goal. 🏆"
+            icon = "✅"
+            bg_color = "#ecfeff" # Matches Cyan Tracker
+            text_color = "#155e75"
+            border_color = "#a5f3fc"
+        elif curr_v >= display_target_v:
+            message = "Great pacing! You are currently on track to hit your goal. Keep it up!"
+            icon = "📈"
+            bg_color = "#ecfdf5" # Matches Green Tracker
+            text_color = "#065f46"
+            border_color = "#a7f3d0"
+        else:
+            message = "You are currently pacing below your target. You might fall short of your goal."
+            icon = "⚠️"
+            bg_color = "#fffbeb" # Matches Amber Tracker
+            text_color = "#92400e"
+            border_color = "#fde68a"
+            
+        st.markdown(f'''
+        <div style="border: 1px solid {border_color}; border-radius: 12px; padding: 24px; background: {bg_color}; margin-top: 16px; height: 110px; display: flex; align-items: center;">
+            <div style="display: flex; align-items: center; color: {text_color}; font-weight: 600; font-size: 1.1rem;">
+                <span style="font-size: 1.8rem; margin-right: 16px;">{icon}</span>
                 {get_text(message, lang_name)}
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
 
     with fc_col2:
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number+delta",
-            value=goal_progress_pct,
-            number={'suffix': "%"},
-            domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': get_text("Goal Progress", lang_name), 'font': {'size': 18, 'family': 'Inter, sans-serif'}},
-            delta={'reference': 100, 'increasing': {'color': "#10b981"}, 'decreasing': {'color': "#dc2626"}},
-            gauge={
-                'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "#4b5563"},
-                'bar': {'color': "#1e3a8a"},
-                'bgcolor': "white",
-                'borderwidth': 1,
-                'bordercolor': "#e5e7eb",
-                'steps': [
-                    {'range': [0, 50], 'color': '#f9fafb'},
-                    {'range': [50, 80], 'color': '#f3f4f6'},
-                    {'range': [80, 100], 'color': '#e5e7eb'}
-                ]
-            }
-        ))
-        fig.update_layout(height=280, margin=dict(l=20, r=20, t=50, b=20), font=dict(family="Inter, sans-serif"))
-        st.plotly_chart(fig, use_container_width=True)
+        # Calculate percentages for Ghost Car tracker
+        time_pct = min(int((elapsed / target_hours) * 100), 100) if target_hours > 0 else 0
+        earn_pct = min(int((curr / target_e) * 100), 100) if target_e > 0 else 0
+        
+        # Determine status
+        if curr >= target_e:
+            glow_color = '#06b6d4' # Bright Cyan for completion
+            status_text = 'GOAL ACHIEVED 🏆'
+        elif earn_pct >= time_pct:
+            glow_color = '#10b981' # Green for ahead of pace
+            status_text = 'WINNING'
+        else:
+            glow_color = '#f59e0b' # Amber for behind pace
+            status_text = 'FALLING BEHIND'
+        
+        # Build HTML as a flat string to prevent Streamlit Markdown parsing errors
+        html = "<div style='background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; color: #111827; height: 100%; display: flex; flex-direction: column; justify-content: space-between;'>"
+        html += "<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;'>"
+        html += "<div style='font-size: 0.8rem; font-weight: 700; text-transform: uppercase;'>Live Pace Tracker</div>"
+        html += f"<div style='background: {glow_color}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 700;'>{status_text}</div>"
+        html += "</div>"
+        
+        html += "<div style='background: #f3f4f6; border-radius: 12px; height: 24px; position: relative; margin-bottom: 12px; margin-right: 15px;'>"
+        # Ghost line (target pace)
+        html += f"<div style='position: absolute; left: 0; top: 0; width: {time_pct}%; height: 100%; border-right: 2px dashed #9ca3af; z-index: 1;'></div>"
+        # Actual earnings bar with Car Emoji
+        html += f"<div style='position: absolute; left: 0; top: 0; width: {earn_pct}%; height: 100%; background: {glow_color}; border-radius: 12px; z-index: 2; transition: width 0.5s ease;'>"
+        html += "<div style='position: absolute; right: -12px; top: -6px; font-size: 1.5rem; text-shadow: 0 2px 4px rgba(0,0,0,0.2);'>🚕</div>"
+        html += "</div>"
+        html += "</div>"
+        
+        html += "<div style='display: flex; justify-content: space-between; font-size: 0.85rem; color: #6b7280;'>"
+        html += f"<div>Time: {elapsed:.1f}h / {target_hours:.1f}h</div>"
+        html += f"<div>Earnings: ₹{curr:,.0f} / ₹{target_e:,.0f}</div>"
+        html += "</div></div>"
+        
+        st.markdown(html, unsafe_allow_html=True)
 
     st.write("---")
     st.markdown(f"### {get_text('Earnings Over Time', lang_name)}")
@@ -806,39 +863,6 @@ def main() -> None:
         }}
         div[role='radiogroup'] span {{
             font-size: 1.15rem !important;
-        }}
-        
-        /* Ambient Safety Halo Animations */
-        @keyframes pulse-red {{
-            0% {{
-                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
-            }}
-            70% {{
-                box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
-            }}
-            100% {{
-                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
-            }}
-        }}
-        
-        @keyframes pulse-amber {{
-            0% {{
-                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
-            }}
-            70% {{
-                box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
-            }}
-            100% {{
-                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-            }}
-        }}
-        
-        .halo-red {{
-            animation: pulse-red 1.5s infinite;
-        }}
-        
-        .halo-amber {{
-            animation: pulse-amber 2s infinite;
         }}
         </style>
     """, unsafe_allow_html=True)
