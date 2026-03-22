@@ -288,14 +288,86 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
         st.warning("No flags for this selection.")
         return
 
-    st.metric("Total Events", len(df_trip))
+    high_count = len(df_trip[df_trip['severity'].str.lower() == 'high'])
+    peak_motion = df_trip['motion_score'].max() if not df_trip.empty else 0
+    peak_audio = df_trip['audio_score'].max() if not df_trip.empty else 0
+    
+    mc1, mc2, mc3, mc4 = st.columns(4)
+    
+    card_style = "background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); height: 100%;"
+    
+    mc1.markdown(f'''<div style="{card_style}">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Total Events</div>
+        <div style="font-size: 2rem; font-weight: 800; color: #111827;">{len(df_trip)}</div>
+    </div>''', unsafe_allow_html=True)
+    
+    mc2.markdown(f'''<div style="{card_style}">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Critical Conflicts</div>
+        <div style="font-size: 2rem; font-weight: 800; color: {'#dc2626' if high_count > 0 else '#10b981'};">{high_count}</div>
+    </div>''', unsafe_allow_html=True)
+    
+    mc3.markdown(f'''<div style="{card_style}">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Peak Motion Score</div>
+        <div style="font-size: 2rem; font-weight: 800; color: #111827;">{peak_motion:.2f}</div>
+    </div>''', unsafe_allow_html=True)
+    
+    mc4.markdown(f'''<div style="{card_style}">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Peak Audio Score</div>
+        <div style="font-size: 2rem; font-weight: 800; color: #111827;">{peak_audio:.2f}</div>
+    </div>''', unsafe_allow_html=True)
+    st.write("")
 
+    # 1. Create a clean plotting dataframe
+    df_trip_plot = df_trip.copy()
+    df_trip_plot["event_label"] = df_trip_plot["timestamp"].dt.strftime('%H:%M:%S') + " | " + df_trip_plot["flag_type"].str.replace('_', ' ').str.title()
+    
+    # 2. Translate engineering jargon to human-readable labels
+    df_trip_plot = df_trip_plot.rename(columns={
+        "motion_score": "Driving Harshness (Braking/Swerve)",
+        "audio_score": "Cabin Noise (Shouting/Argument)"
+    })
+    
+    # 3. Draw the graph with plain English
     fig = px.bar(
-        df_trip, x="timestamp", y=["motion_score", "audio_score"], 
-        barmode="group", height=400,
-        color_discrete_map={"motion_score": "#f59e0b", "audio_score": "#fcd34d"}
+        df_trip_plot, 
+        x="event_label", 
+        y=["Driving Harshness (Braking/Swerve)", "Cabin Noise (Shouting/Argument)"], 
+        barmode="group", height=420,
+        color_discrete_map={
+            "Driving Harshness (Braking/Swerve)": "#f97316", # High-vis Orange 
+            "Cabin Noise (Shouting/Argument)": "#fbbf24" # High-vis Amber
+        },
+        labels={
+            "value": "Danger Level (0 to 1)", 
+            "event_label": "Time & Incident Verdict", 
+            "variable": "Sensor Trigger"
+        }
     )
-    fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), legend_title_text="", font=dict(family="Inter, sans-serif"))
+    
+    # 4. Add the visual danger zone threshold
+    fig.add_hline(
+        y=0.7, line_dash="dash", line_color="#dc2626", line_width=2,
+        annotation_text=" CRITICAL DANGER THRESHOLD", annotation_position="top left",
+        annotation_font=dict(color="#dc2626", size=10, weight="bold", family="Inter")
+    )
+    
+    # 5. Clean up the UI
+    fig.update_layout(
+        margin=dict(t=40, b=40, l=40, r=40), 
+        font=dict(family="Inter, sans-serif"),
+        plot_bgcolor="rgba(0,0,0,0)",
+        yaxis=dict(gridcolor="#e5e7eb", range=[0, 1.05]),
+        xaxis=dict(gridcolor="rgba(0,0,0,0)"),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            title=""
+        )
+    )
+    
     st.plotly_chart(fig, use_container_width=True)
     
     st.markdown(f"**{get_text('Incident Map Location', lang_name)}**", unsafe_allow_html=True)
@@ -367,12 +439,70 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
             sc = "#dc2626" if sev == "HIGH" else ("#f59e0b" if sev == "MEDIUM" else "#fcd34d")
             text_color = "white" if sev == "HIGH" else "#111827"
             
-            cols[0].markdown(f"<div style='background:{sc}; color:{text_color}; padding:4px; border-radius:6px; text-align:center; font-weight:700;'>{sev}</div>", unsafe_allow_html=True)
+            # Add animation to main severity badge
+            if sev == "HIGH":
+                animation_style = "animation: breath-high 1.5s infinite;"
+            elif sev == "MEDIUM":
+                animation_style = "animation: breath-medium 2s infinite;"
+            else:
+                animation_style = ""
+            
+            cols[0].markdown(f"<div style='background:{sc}; color:{text_color}; padding:4px; border-radius:6px; text-align:center; font-weight:700; {animation_style}'>{sev}</div>", unsafe_allow_html=True)
             cols[1].markdown(f"**{row['flag_type'].replace('_', ' ').title()}** | {row['timestamp'].strftime('%H:%M:%S')}")
             cols[1].markdown(f"<span style='font-size: 0.8rem; color: #6b7280;'>Location: {row['gps_lat']:.4f}, {row['gps_lon']:.4f}</span>", unsafe_allow_html=True)
             
             insight = row.get("llm_insight", "Processing...")
-            st.info(f"Insight: {insight}")
+            
+            # 1. Inject the CSS animations for the breathing glow
+            st.markdown('''
+            <style>
+            @keyframes breath-high {
+                0% { 
+                    box-shadow: 0 0 5px rgba(220, 38, 38, 0.5); 
+                    transform: scale(1);
+                }
+                50% { 
+                    box-shadow: 0 0 25px rgba(220, 38, 38, 1), 0 0 40px rgba(220, 38, 38, 0.6); 
+                    transform: scale(1.02);
+                }
+                100% { 
+                    box-shadow: 0 0 5px rgba(220, 38, 38, 0.5); 
+                    transform: scale(1);
+                }
+            }
+
+            @keyframes breath-medium {
+                0% { 
+                    box-shadow: 0 0 5px rgba(245, 158, 11, 0.4); 
+                }
+                50% { 
+                    box-shadow: 0 0 20px rgba(245, 158, 11, 0.9), 0 0 30px rgba(245, 158, 11, 0.4); 
+                }
+                100% { 
+                    box-shadow: 0 0 5px rgba(245, 158, 11, 0.4); 
+                }
+            }
+            </style>
+            ''', unsafe_allow_html=True)
+            
+            # 2. Set border color for AI Analysis box (no tiny badge needed)
+            if sev == "HIGH":
+                border_color = "#dc2626"
+            elif sev == "MEDIUM":
+                border_color = "#f59e0b"
+            else:
+                border_color = "#3b82f6"
+            
+            # 3. Render the full box
+            st.markdown(f'''
+            <div style="background: #ffffff; border: 1px solid #e5e7eb; border-left: 4px solid {border_color}; padding: 16px; border-radius: 8px; margin-top: 12px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 1.2rem; margin-right: 8px;">🤖</span>
+                    <span style="font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Drive Pulse AI Analysis</span>
+                </div>
+                <div style="font-size: 0.9rem; color: #334155; line-height: 1.5;">{insight}</div>
+            </div>
+            ''', unsafe_allow_html=True)
             
             with cols[2]:
                 if st.button("Listen", key=f"btn_audio_{row['flag_id']}", help=f"Listen to Insight in {lang_name}"):
