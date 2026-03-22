@@ -716,21 +716,23 @@ def render_earnings_view(velocity_df: pd.DataFrame, goals_df: pd.DataFrame, driv
 
 def render_how_it_works() -> None:
     lang_name = st.session_state.get("selected_lang_name", "English")
-    st.markdown(get_text("Driver Pulse integrates telematics signals with real-time analytics to surface proactive, data-driven security for Uber partners.", lang_name))
+    
+    st.markdown(f"### {get_text('System Architecture & Data Flow', lang_name)}")
+    st.info(get_text("Driver Pulse integrates telematics signals with real-time analytics to surface proactive, data-driven security for Uber partners.", lang_name), icon="⚙️")
     st.write("---")
     
     col1, col2 = st.columns(2)
     with col1:
-        with st.container(border=True, height=260):
-            st.markdown(f"<h4 style='color: #2563eb;'>{get_text('Stress Detection Engine', lang_name)}</h4>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(f"<h4 style='color: #2563eb; margin-bottom: 8px;'>🏎️ {get_text('Stress Detection Engine', lang_name)}</h4>", unsafe_allow_html=True)
             st.markdown(f"""
             - {get_text('Ingests sparse **accelerometer** and **audio intensity** streams.', lang_name)}
             - {get_text('Computes engineered features (e.g., horizontal jerk, rolling noise windows).', lang_name)}
             - {get_text('Applies strict rule-based logic to flag *harsh motion*, *sustained cabin noise*, and *critical conflicts*.', lang_name)}
             """)
-        
-        with st.container(border=True, height=260):
-            st.markdown(f"<h4 style='color: #2563eb;'>{get_text('Earnings Velocity Model', lang_name)}</h4>", unsafe_allow_html=True)
+            
+        with st.container(border=True):
+            st.markdown(f"<h4 style='color: #2563eb; margin-bottom: 8px;'>📈 {get_text('Earnings Velocity Model', lang_name)}</h4>", unsafe_allow_html=True)
             st.markdown(f"""
             - {get_text('Tracks cumulative earnings versus daily personalized goals.', lang_name)}
             - {get_text('Computes real-time *current pace (₹/hr)* versus *target velocity needed*.', lang_name)}
@@ -738,16 +740,16 @@ def render_how_it_works() -> None:
             """)
             
     with col2:
-        with st.container(border=True, height=260):
-            st.markdown(f"<h4 style='color: #2563eb;'>{get_text('Flag Aggregation & Scoring', lang_name)}</h4>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(f"<h4 style='color: #2563eb; margin-bottom: 8px;'>📊 {get_text('Flag Aggregation & Scoring', lang_name)}</h4>", unsafe_allow_html=True)
             st.markdown(f"""
             - {get_text('Collapses chaotic bursts of raw telematics samples into **single intuitive events**.', lang_name)}
             - {get_text('Computes standard **0-1 scale severity scores** for Motion and Audio intensity.', lang_name)}
             - {get_text('Generates strict, transparent explanations mapping exactly to the triggered sensors.', lang_name)}
             """)
             
-        with st.container(border=True, height=260):
-            st.markdown(f"<h4 style='color: #2563eb;'>{get_text('Drive Pulse LLM Insights', lang_name)}</h4>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(f"<h4 style='color: #2563eb; margin-bottom: 8px;'>🤖 {get_text('Drive Pulse LLM Insights', lang_name)}</h4>", unsafe_allow_html=True)
             st.markdown(f"""
             - {get_text('Integrates a localized analysis engine for driver support.', lang_name)}
             - {get_text('Logic filters ensure only actionable events consume backend resources.', lang_name)}
@@ -756,28 +758,40 @@ def render_how_it_works() -> None:
 
     st.write("---")
     st.subheader(get_text("Under The Hood: Architecture & Math", lang_name))
-    tab_math, tab_arch = st.tabs([get_text("Engine Mathematical Formulas", lang_name), get_text("System Constraints & Privacy", lang_name)])
+    tab_math, tab_arch = st.tabs(["📐 " + get_text("Engine Mathematical Formulas", lang_name), "🛡️ " + get_text("System Constraints & Privacy", lang_name)])
     
     with tab_math:
         st.write(f"##### {get_text('Stress Engine (Physics & Audio)', lang_name)}")
-        st.latex(r"Motion\_Score = \max\left(0, \min\left(1, \frac{Jerk - 4.0}{4.0}\right)\right)")
-        st.latex(r"Audio\_Score = \max\left(0, \min\left(1, \frac{AudioLevel - 85.0}{15.0}\right)\right)")
-        st.latex(r"Combined\_Score = \max(Motion\_Score, Audio\_Score)")
-        st.write("")
+        with st.container(border=True):
+            st.latex(r"Motion\_Score = \max\left(0, \min\left(1, \frac{Jerk - 4.0}{4.0}\right)\right)")
+            st.latex(r"Audio\_Score = \max\left(0, \min\left(1, \frac{AudioLevel - 85.0}{15.0}\right)\right)")
+            st.latex(r"Combined\_Score = \max(Motion\_Score, Audio\_Score)")
+            
         st.write(f"##### {get_text('Earnings Velocity Planner', lang_name)}")
-        st.latex(r"Current\_Velocity = \frac{Cumulative\_Earnings}{Elapsed\_Hours}")
-        st.latex(r"Target\_Velocity = \frac{Target\_Earnings - Cumulative\_Earnings}{Remaining\_Hours}")
-        st.latex(r"Velocity\_Delta = Current\_Velocity - Target\_Velocity")
+        with st.container(border=True):
+            st.latex(r"Current\_Velocity = \frac{Cumulative\_Earnings}{Elapsed\_Hours}")
+            st.latex(r"Target\_Velocity = \frac{Target\_Earnings - Cumulative\_Earnings}{Remaining\_Hours}")
+            st.latex(r"Velocity\_Delta = Current\_Velocity - Target\_Velocity")
+
+        st.write("")
+        st.markdown(f"**{get_text('Mathematical Threshold Justifications', lang_name)}**")
+        st.info(get_text("🏎️ **Harsh Braking (4.0 m/s²):** Standard comfortable braking generates 0.15g to 0.30g of force. An accelerometer reading exceeding 4.0 m/s² (approx. 0.4g+) physically indicates an emergency maneuver, aggressive driving, or a collision impact.", lang_name))
+        st.info(get_text("🔊 **Critical Audio (85.0 dB):** Normal cabin conversation registers at ~60 dB. We set our critical threshold at 85 dB, which aligns with OSHA occupational safety standards for environmental distress (equivalent to heavy traffic or sustained yelling).", lang_name))
 
     with tab_arch:
-        st.write(f"##### {get_text('Network Resilience (Decoupled Offline Queues)', lang_name)}")
-        st.markdown(f"{get_text('**Constraint:** Cars lose cellular connectivity in garages, tunnels, and rural borders. <br>**Solution:** The client caches & batches resampled telematics locally. If the API drops, arrays wait. When reconnected, the Backend Engine uses absolute Unix timestamps (`pd.merge_asof`) so entirely out-of-order, delayed events still successfully generate contextually accurate stress insights.', lang_name)}", unsafe_allow_html=True)
+        st.write(f"##### 📶 {get_text('Network Resilience (Decoupled Offline Queues)', lang_name)}")
+        st.error(get_text("**Constraint:** Cars lose cellular connectivity in garages, tunnels, and rural borders.", lang_name), icon="🛑")
+        st.success(get_text("**Solution:** The client caches & batches resampled telematics locally. If the API drops, arrays wait. When reconnected, the Backend Engine uses absolute Unix timestamps (`pd.merge_asof`) so entirely out-of-order, delayed events still successfully generate contextually accurate stress insights.", lang_name), icon="✅")
         
-        st.write(f"##### {get_text('Ethical Audio Surveillance (Physical Minimization)', lang_name)}")
-        st.markdown(f"{get_text('**Constraint:** You cannot natively record a passenger conversation. Period. <br>**Solution:** The Edge Node pushes the microphone through a hard DSP filter natively on the device. **The cloud never touches raw audio**. The extractor locally calculates a rolling mean in decibels (`dB`), creating an anonymous 1D numerical array. The Cloud receives `85.2 dB` practically disabling spying.', lang_name)}", unsafe_allow_html=True)
+        st.write("---")
+        st.write(f"##### 🎙️ {get_text('Ethical Audio Surveillance (Physical Minimization)', lang_name)}")
+        st.error(get_text("**Constraint:** You cannot natively record a passenger conversation. Period.", lang_name), icon="🛑")
+        st.success(get_text("**Solution:** The Edge Node pushes the microphone through a hard DSP filter natively on the device. **The cloud never touches raw audio**. The extractor locally calculates a rolling mean in decibels (`dB`), creating an anonymous 1D numerical array. The Cloud receives `85.2 dB` practically disabling spying.", lang_name), icon="✅")
 
-        st.write(f"##### {get_text('Battery Survival (Offloaded Generation)', lang_name)}")
-        st.markdown(f"{get_text('**Constraint:** High-frequency continuous polling destroys Uber phones instantly. <br>**Solution:** Rather than streaming continuous WebSockets, the device pings batched chunks. Expensive processes (Random Forest Predictors, LLM Generation) trigger remotely on the backend. The dashboard simply acts as a thin Read-only UI over cached outputs.', lang_name)}", unsafe_allow_html=True)
+        st.write("---")
+        st.write(f"##### 🔋 {get_text('Battery Survival (Offloaded Generation)', lang_name)}")
+        st.error(get_text("**Constraint:** High-frequency continuous polling destroys Uber phones instantly.", lang_name), icon="🛑")
+        st.success(get_text("**Solution:** Rather than streaming continuous WebSockets, the device pings batched chunks. Expensive processes (Random Forest Predictors, LLM Generation) trigger remotely on the backend. The dashboard simply acts as a thin Read-only UI over cached outputs.", lang_name), icon="✅")
 
 
 def render_test_api() -> None:
