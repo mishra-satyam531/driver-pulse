@@ -853,42 +853,14 @@ def render_test_api() -> None:
                 mc1.metric("Current Pace", f"₹{current_v:.1f}/hr")
                 mc2.metric("Required Pace", f"₹{target_v:.1f}/hr")
                 
+                st.markdown(f"**{get_text('Current Shift Status', lang_name)}**")
+                display_status = rule_status.replace('_', ' ').upper()
                 if rule_status == "ahead":
-                    st.success(f"Rule Engine: {rule_status.upper()}", icon="✅")
+                    st.success(f"{display_status}", icon="📈")
+                elif rule_status == "on_track":
+                    st.info(f"{display_status}", icon="✅")
                 else:
-                    st.warning(f"Rule Engine: {rule_status.upper()}", icon="⚠️")
-                
-                try:
-                    model, encoder = load_model()
-                    pct_earned = earned / max(target, 0.01)
-                    target_hours = elapsed_h + rem_h
-                    pct_time_used = elapsed_h / max(target_hours, 0.01)
-                    ideal_v = target / max(target_hours, 0.01)
-                    velocity_ratio = (current_v or 0) / max(ideal_v, 0.01)
-                    
-                    ml_pred = predict_single(
-                        model, encoder,
-                        pct_earned=pct_earned,
-                        pct_time_used=pct_time_used,
-                        velocity_ratio=velocity_ratio,
-                        earnings_velocity=current_v or 0,
-                        hours_remaining=rem_h,
-                        experience_months=24,
-                        rating=4.8
-                    )
-                    
-                    st.markdown("**Random Forest ML Forecast**")
-                    st.progress(ml_pred["confidence"], text=f"Status: {ml_pred['forecast'].replace('_', ' ').upper()} | Confidence: {ml_pred['confidence']:.1%}")
-                    
-                    with st.expander("View Raw JSON API Response"):
-                        st.json({
-                            "module": "goal_predictor_ml",
-                            "ml_forecast": ml_pred["forecast"],
-                            "confidence": ml_pred["confidence"],
-                            "class_probabilities": ml_pred["probabilities"]
-                        })
-                except Exception as e:
-                    st.error(f"ML Model Error: {str(e)}")
+                    st.warning(f"{display_status}", icon="⚠️")
                     
     else:
         with col_in:
@@ -907,7 +879,7 @@ def render_test_api() -> None:
                 import numpy as np
                 
                 harsh_motion = (jerk > 4.0)
-                sustained_noise = (audio_level > 85) and (audio_class == "argument")
+                sustained_noise = (audio_level > 85)
                 critical_conflict = harsh_motion and sustained_noise
 
                 flag = None
@@ -960,25 +932,7 @@ def render_test_api() -> None:
                         "explanation": explanation
                     })
                     
-                if flag and severity in ["medium", "high"]:
-                    from backend.driver_insights import generate_llm_insight, API_KEY, BASE_URL
-                    from openai import OpenAI
-                    client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-                    try:
-                        insight = generate_llm_insight(explanation, "2024-02-06 14:30:00", "Alex (Mock)", client)
-                        st.info(f"**🤖 Drive Pulse AI Insight:** {insight}")
-                        
-                        lang_name = st.session_state.get("selected_lang_name", "English")
-                        lang_code = st.session_state.get("selected_lang_code", "en")
-                        if st.button("Listen to AI Audio", key="voice_test_api", help=f"Generate Voice in {lang_name}"):
-                            with st.spinner(f"Synthesizing voice in {lang_name}..."):
-                                translated = translate_text(insight, lang_name)
-                                speak_text(translated, lang_code)
-                    except Exception as e:
-                        st.error("Could not fetch LLM insight. " + str(e))
-                else:
-                    st.info("severity is low, no LLM insight triggered.")
-
+                
 
 def speak_text(text: str, lang_code: str):
     """Generates and plays audio for the given text and language."""
