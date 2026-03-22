@@ -181,23 +181,42 @@ def translate_text(text: str, target_lang_name: str) -> str:
 
 def render_trip_overview(flagged_df: pd.DataFrame) -> None:
     lang_name = st.session_state.get("selected_lang_name", "English")
-    st.subheader(get_text("Trip Summary", lang_name))
+    st.markdown(f"### 🗂️ {get_text('Fleet Overview & Trip Summary', lang_name)}")
 
     if flagged_df.empty:
-        st.info("No flagged moments available yet.")
+        st.info("No flagged moments available yet.", icon="ℹ️")
         return
 
-    # Get all drivers from master drivers data (complete fleet)
+    # Get all drivers from master drivers data
     drivers_df = load_drivers()
     all_drivers = sorted(drivers_df['driver_id'].unique())
     
-    # Get drivers who actually have flags for filtering
-    flagged_drivers = sorted(flagged_df["driver_id"].dropna().unique().tolist())
+    # Map IDs to actual driver names for a richer UI
+    driver_mapping = {}
+    for d in all_drivers:
+        name = d
+        if not drivers_df.empty:
+            row = drivers_df[drivers_df["driver_id"] == d]
+            if not row.empty:
+                name = f"{row['name'].iloc[0]} ({d})"
+        driver_mapping[d] = name
+
+    drivers_display = ["All Drivers"] + [driver_mapping[d] for d in all_drivers]
+    selected_display = st.selectbox(f"🔍 {get_text('Driver Filter', lang_name)}", drivers_display, index=0, key="overview_driver_filter")
     
-    selected_driver = st.selectbox(f"{get_text('Driver', lang_name)} Filter", ["All"] + all_drivers, key="overview_driver_filter")
-    
-    # Filter data: if "All" show all, else filter by selected driver
+    selected_driver = "All"
+    if selected_display != "All Drivers":
+        for d, disp in driver_mapping.items():
+            if disp == selected_display:
+                selected_driver = d
+                break
+
+    # Filter data
     view_df = flagged_df if selected_driver == "All" else flagged_df[flagged_df["driver_id"] == selected_driver]
+
+    if view_df.empty:
+        st.success(get_text("No stress events recorded for this selection. Perfect safety record!", lang_name), icon="🛡️")
+        return
 
     trip_summary = (
         view_df.groupby(["driver_id", "trip_id"], as_index=False)
@@ -211,48 +230,70 @@ def render_trip_overview(flagged_df: pd.DataFrame) -> None:
         .sort_values("first_timestamp")
     )
 
+    # --- Styled KPI Cards ---
+    st.write("")
     col1, col2, col3 = st.columns(3)
-    col1.metric(get_text("Total Trips", lang_name), len(trip_summary))
-    col2.metric(get_text("Total Stress Events", lang_name), trip_summary["flags_count"].sum())
-    col3.metric(get_text("Critical (High) Events", lang_name), trip_summary["high_flags"].sum())
+    card_style = "background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); height: 100%;"
+    
+    total_trips = len(trip_summary)
+    total_events = trip_summary["flags_count"].sum()
+    critical_events = trip_summary["high_flags"].sum()
+
+    col1.markdown(f'''<div style="{card_style}">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">🚙 {get_text("Total Trips", lang_name)}</div>
+        <div style="font-size: 2rem; font-weight: 800; color: #111827;">{total_trips}</div>
+    </div>''', unsafe_allow_html=True)
+    
+    col2.markdown(f'''<div style="{card_style}">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">⚠️ {get_text("Total Stress Events", lang_name)}</div>
+        <div style="font-size: 2rem; font-weight: 800; color: #f59e0b;">{total_events}</div>
+    </div>''', unsafe_allow_html=True)
+    
+    col3.markdown(f'''<div style="{card_style}">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">🚨 {get_text("Critical (High) Events", lang_name)}</div>
+        <div style="font-size: 2rem; font-weight: 800; color: {'#dc2626' if critical_events > 0 else '#10b981'};">{critical_events}</div>
+    </div>''', unsafe_allow_html=True)
 
     st.write("---")
     
-    st.write(f"#### {get_text('Trip', lang_name)} Analysis")
+    # --- Visualizations ---
+    st.markdown(f"#### 📊 {get_text('Trip Stress Analysis', lang_name)}")
     
-    fig1 = px.bar(
-        view_df.sort_values("timestamp"), 
-        x="timestamp", 
-        y="combined_score", 
-        color="trip_id",
-        height=450,
-        title="Individual Stress Event Intensity",
-        labels={"combined_score": "Combined Score", "timestamp": "Time"},
-        template="plotly_white",
-        color_discrete_sequence=px.colors.qualitative.Prism
-    )
-    fig1.update_layout(margin=dict(t=40, b=40, l=40, r=40), font=dict(family="Inter, sans-serif"), legend_title_text="Trip ID")
-    st.plotly_chart(fig1, use_container_width=True)
-    
-    fig2 = px.scatter(
-        view_df.sort_values("timestamp"), 
-        x="timestamp", 
-        y="combined_score", 
-        size="combined_score",
-        color="severity",
-        height=450,
-        title="Incident Severity Timeline",
-        labels={"combined_score": "Score", "timestamp": "Time"},
-        template="plotly_white",
-        color_discrete_map={"low": "#fcd34d", "medium": "#f59e0b", "high": "#dc2626"}
-    )
-    fig2.update_layout(margin=dict(t=40, b=40, l=40, r=40), font=dict(family="Inter, sans-serif"), legend_title_text="Severity")
-    st.plotly_chart(fig2, use_container_width=True)
+    with st.container(border=True):
+        fig1 = px.bar(
+            view_df.sort_values("timestamp"), 
+            x="timestamp", 
+            y="combined_score", 
+            color="trip_id",
+            height=400,
+            title="Individual Stress Event Intensity",
+            labels={"combined_score": "Combined Score", "timestamp": "Time"},
+            template="plotly_white",
+            color_discrete_sequence=px.colors.qualitative.Prism
+        )
+        fig1.update_layout(margin=dict(t=40, b=20, l=40, r=40), font=dict(family="Inter, sans-serif"), legend_title_text="Trip ID", plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig1, use_container_width=True)
+        
+    with st.container(border=True):
+        fig2 = px.scatter(
+            view_df.sort_values("timestamp"), 
+            x="timestamp", 
+            y="combined_score", 
+            size="combined_score",
+            color="severity",
+            height=400,
+            title="Incident Severity Timeline",
+            labels={"combined_score": "Score", "timestamp": "Time"},
+            template="plotly_white",
+            color_discrete_map={"low": "#fcd34d", "medium": "#f59e0b", "high": "#dc2626"}
+        )
+        fig2.update_layout(margin=dict(t=40, b=20, l=40, r=40), font=dict(family="Inter, sans-serif"), legend_title_text="Severity", plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig2, use_container_width=True)
 
-
-
-    st.write("#### Detailed Trip Log (Raw CSV Export)")
-    st.dataframe(view_df.head(100), use_container_width=True, hide_index=True)
+    st.write("---")
+    st.markdown(f"#### 📄 {get_text('Detailed Trip Log (Raw Data)', lang_name)}")
+    with st.container(border=True):
+        st.dataframe(view_df.head(100), use_container_width=True, hide_index=True)
 
 
 def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) -> None:
