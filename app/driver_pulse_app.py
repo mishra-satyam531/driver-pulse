@@ -187,9 +187,16 @@ def render_trip_overview(flagged_df: pd.DataFrame) -> None:
         st.info("No flagged moments available yet.")
         return
 
-    drivers = sorted(flagged_df["driver_id"].dropna().unique().tolist())
-    selected_driver = st.selectbox(f"{get_text('Driver', lang_name)} Filter", ["All"] + drivers, key="overview_driver_filter")
+    # Get all drivers from master drivers data (complete fleet)
+    drivers_df = load_drivers()
+    all_drivers = sorted(drivers_df['driver_id'].unique())
     
+    # Get drivers who actually have flags for filtering
+    flagged_drivers = sorted(flagged_df["driver_id"].dropna().unique().tolist())
+    
+    selected_driver = st.selectbox(f"{get_text('Driver', lang_name)} Filter", ["All"] + all_drivers, key="overview_driver_filter")
+    
+    # Filter data: if "All" show all, else filter by selected driver
     view_df = flagged_df if selected_driver == "All" else flagged_df[flagged_df["driver_id"] == selected_driver]
 
     trip_summary = (
@@ -257,12 +264,13 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
         st.info("No flagged events found.")
         return
 
-    original_drivers = sorted(flagged_df["driver_id"].dropna().unique().tolist())
+    # Get all drivers from master drivers data (complete fleet)
+    drivers_df = load_drivers()
+    driver_list = sorted(drivers_df['driver_id'].unique())
     
     # Map IDs to actual driver names for a richer UI
-    drivers_df = load_drivers()
     driver_mapping = {}
-    for d in original_drivers:
+    for d in driver_list:
         name = d
         if not drivers_df.empty:
             row = drivers_df[drivers_df["driver_id"] == d]
@@ -270,7 +278,7 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
                 name = f"{row['name'].iloc[0]} ({d})"
         driver_mapping[d] = name
         
-    drivers_display = [driver_mapping[d] for d in original_drivers]
+    drivers_display = [driver_mapping[d] for d in driver_list]
     selected_display = st.selectbox(get_text("Driver", lang_name), drivers_display, index=0 if drivers_display else None, key="flagged_driver_select")
     
     selected_driver = None
@@ -278,6 +286,13 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
         if disp == selected_display:
             selected_driver = d
             break
+    
+    # Filter flags for selected driver (may be empty)
+    driver_flags = flagged_df[flagged_df["driver_id"] == selected_driver] if not flagged_df.empty else pd.DataFrame()
+    
+    if driver_flags.empty:
+        st.success('✅ This driver has a perfect safety record! No flagged moments detected.', icon='🛡️')
+        return
 
     trips = sorted(flagged_df[flagged_df["driver_id"] == selected_driver]["trip_id"].dropna().unique().tolist())
     selected_trip = st.selectbox(get_text("Trip", lang_name), trips, index=0 if trips else None, key="flagged_trip_select")
