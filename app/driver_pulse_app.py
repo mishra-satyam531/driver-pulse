@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import streamlit as st
 import os
 import tempfile
@@ -58,7 +59,6 @@ def load_earnings_velocity() -> pd.DataFrame:
     df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
     df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
     
-    import numpy as np
     new_rows = []
     for driver in df['driver_id'].dropna().unique()[:5]: 
         base_time = pd.Timestamp("2024-02-06 07:00:00")
@@ -313,6 +313,11 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
                     weight=3 if is_selected_trip else 1
                 ).add_to(m)
                 
+            # Add path line between points
+            if len(all_driver_flags) > 1:
+                path_points = all_driver_flags[["gps_lat", "gps_lon"]].values.tolist()
+                folium.PolyLine(path_points, color="#1e3a8a", weight=2, opacity=0.6).add_to(m)
+
             st_folium(m, use_container_width=True, height=500, returned_objects=[], key="incident_report_map")
         else:
             st.info("No GPS data available for these incidents.")
@@ -338,6 +343,21 @@ def render_flagged_moments(flagged_df: pd.DataFrame, insights_df: pd.DataFrame) 
             cols[1].markdown(f"**{row['flag_type'].replace('_', ' ').title()}** | {row['timestamp'].strftime('%H:%M:%S')}")
             cols[1].markdown(f"<span style='font-size: 0.8rem; color: #6b7280;'>Location: {row['gps_lat']:.4f}, {row['gps_lon']:.4f}</span>", unsafe_allow_html=True)
             
+            # Confidence Badge & Feature Contributions
+            conf_score = row["combined_score"]
+            conf_label = "High Confidence" if conf_score > 0.8 else ("Medium Confidence" if conf_score > 0.4 else "Low Confidence")
+            conf_color = "#10b981" if conf_score > 0.8 else ("#f59e0b" if conf_score > 0.4 else "#6b7280")
+            
+            cols[1].markdown(f"<span style='background:{conf_color}; color:white; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; vertical-align:middle; margin-left:10px;'>{conf_label}</span>", unsafe_allow_html=True)
+            
+            # Feature Contributions
+            with st.expander(get_text("Explainability (Feature Contributions)", lang_name)):
+                expl_col1, expl_col2 = st.columns(2)
+                expl_col1.metric("Motion Impact", f"{int(row['motion_score']*100)}%")
+                expl_col2.metric("Audio Impact", f"{int(row['audio_score']*100)}%")
+                st.progress(row["motion_score"], text="Motion Weight")
+                st.progress(row["audio_score"], text="Audio Weight")
+
             insight = row.get("llm_insight", "Processing...")
             st.info(f"Insight: {insight}")
             
@@ -427,6 +447,19 @@ def render_earnings_view(velocity_df: pd.DataFrame, goals_df: pd.DataFrame, driv
     st.write("")
     
     fc_col1, fc_col2 = st.columns([1.5, 1])
+    with st.sidebar:
+        st.write("---")
+        st.subheader(get_text("Set Daily Goals", lang_name))
+        new_target_e = st.number_input(get_text("Target Earnings (₹)", lang_name), value=target_e, step=100.0)
+        new_target_h = st.number_input(get_text("Target Hours", lang_name), value=target_hours, step=0.5)
+        if new_target_e != target_e or new_target_h != target_hours:
+            target_e = new_target_e
+            target_hours = new_target_h
+            # Recalculate based on new goals
+            remaining = max(target_hours - elapsed, 0)
+            projected = curr + (curr_v * remaining) if curr_v else curr
+            goal_progress_pct = min(int((curr / target_e) * 100), 100) if target_e > 0 else 0
+
     with fc_col1:
         st.markdown(f"### {get_text('Goal Achievement Forecast', lang_name)}")
         message = "You're on track to meet your goal." if status == "ON_TRACK" else ("You are ahead of your goal." if status == "AHEAD" else "You might fall short of your goal.")
@@ -533,7 +566,11 @@ def render_how_it_works() -> None:
 
     st.write("---")
     st.subheader(get_text("Under The Hood: Architecture & Math", lang_name))
-    tab_math, tab_arch = st.tabs([get_text("Engine Mathematical Formulas", lang_name), get_text("System Constraints & Privacy", lang_name)])
+    tab_math, tab_arch, tab_viz = st.tabs([
+        get_text("Engine Mathematical Formulas", lang_name), 
+        get_text("System Constraints & Privacy", lang_name),
+        get_text("Visual Strategy & Flow", lang_name)
+    ])
     
     with tab_math:
         st.write(f"##### {get_text('Stress Engine (Physics & Audio)', lang_name)}")
@@ -556,165 +593,375 @@ def render_how_it_works() -> None:
         st.write(f"##### {get_text('Battery Survival (Offloaded Generation)', lang_name)}")
         st.markdown(f"{get_text('**Constraint:** High-frequency continuous polling destroys Uber phones instantly. <br>**Solution:** Rather than streaming continuous WebSockets, the device pings batched chunks. Expensive processes (Random Forest Predictors, LLM Generation) trigger remotely on the backend. The dashboard simply acts as a thin Read-only UI over cached outputs.', lang_name)}", unsafe_allow_html=True)
 
+    with tab_viz:
+        import base64
+        
+        st.write(f"##### {get_text('System Architecture (Data Flow)', lang_name)}")
+        chart1 = """
+        flowchart TD
+            subgraph Edge [The Driver's Device]
+                S1[IMU / Accelerometer]
+                S2[Microphone / Audio]
+                Filter[DSP Filter \n 1D Envelope]
+                UI[Streamlit Dashboard]
+            end
+
+            subgraph Cloud [Cloud Intelligence]
+                Lake[(Time-Series Lake)]
+                StressCore{Stress Logic Engine}
+                VeloCore{Earnings Predictor}
+                LLM[GenAI Insight LLM]
+                DB[(Insights DB)]
+            end
+
+            S1 & S2 --> Filter
+            Filter -->|Encrypted Batches| Lake
+            Lake --> StressCore & VeloCore
+            StressCore & VeloCore --> DB
+            DB -->|High Severity| LLM
+            LLM -->|Empathetic Scripts| DB
+            DB -->|Fetch| UI
+        """
+        b64_1 = base64.b64encode(chart1.encode('ascii')).decode('ascii')
+        st.image(f"https://mermaid.ink/img/{b64_1}", use_container_width=True)
+        
+        st.write("---")
+        st.write(f"##### {get_text('Stress Detection Pipeline', lang_name)}")
+        chart2 = """
+        flowchart LR
+            A[Raw Telemetry] --> B[Feature Engineering]
+            B --> C[Sensor Fusion]
+            C --> D[Rule Engine]
+            D --> E[Event Aggregator]
+            E --> F[Flagged Output]
+            
+            subgraph Details
+                B1[Horizontal Jerk] --> B
+                B2[Rolling Audio] --> B
+                D1[Jerk > 4.0] --> D
+                D2[Audio > 85dB] --> D
+            end
+        """
+        b64_2 = base64.b64encode(chart2.encode('ascii')).decode('ascii')
+        st.image(f"https://mermaid.ink/img/{b64_2}", use_container_width=True)
+
 
 def render_test_api() -> None:
     lang_name = st.session_state.get("selected_lang_name", "English")
     st.subheader(get_text("Interactive Model Testing", lang_name))
-    st.markdown(get_text("Use this section to generate random inputs and test how the backend models behave exactly like an API.", lang_name))
     
-    test_type = st.radio(get_text("Select Model to Test:", lang_name), [get_text("Earnings Velocity & Goal Predictor", lang_name), get_text("Stress & Driver Insights", lang_name)])
-    if st.button(get_text("Generate Random Values", lang_name)):
-        import random
-        st.session_state["rand_earned"] = round(random.uniform(50, 1500), 2)
-        st.session_state["rand_target"] = round(random.uniform(1000, 2000), 2)
-        st.session_state["rand_elapsed"] = round(random.uniform(1.0, 7.0), 2)
-        st.session_state["rand_remaining"] = round(random.uniform(1.0, 7.0), 2)
+    test_mode_options = [get_text("Single Event Prediction", lang_name), get_text("Batch Processing (CSV)", lang_name)]
+    test_mode = st.radio(get_text("Select Testing Mode:", lang_name), test_mode_options, horizontal=True, key="active_test_mode")
+    
+    st.write("---")
+    
+    if test_mode == test_mode_options[0]:
+        # Single Event
+        st.markdown(get_text("Enter individual values to test model edge cases.", lang_name))
+        test_type = st.radio(get_text("Select Model to Test:", lang_name), [get_text("Earnings Velocity & Goal Predictor", lang_name), get_text("Stress & Driver Insights", lang_name)], key="single_test_type")
         
-        st.session_state["rand_jerk"] = round(random.uniform(1.0, 8.0), 2)
-        st.session_state["rand_audio"] = round(random.uniform(60.0, 110.0), 2)
-        st.session_state["rand_audio_class"] = random.choice(["normal", "quiet", "loud", "argument"])
-        st.session_state["did_generate"] = True
-
-    if not st.session_state.get("did_generate", False):
-        st.info(get_text("Click 'Generate Random Values' above to populate the inputs.", lang_name))
-        return
-
-    st.write(f"### {get_text('Simulated Input Values', lang_name)}")
-    if test_type == get_text("Earnings Velocity & Goal Predictor", lang_name):
-        cols = st.columns(4)
-        earned = cols[0].number_input(get_text("Earned (₹)", lang_name), value=st.session_state["rand_earned"])
-        target = cols[1].number_input(get_text("Target (₹)", lang_name), value=st.session_state["rand_target"])
-        elapsed_h = cols[2].number_input(get_text("Elapsed Hours", lang_name), value=st.session_state["rand_elapsed"])
-        rem_h = cols[3].number_input(get_text("Remaining Hours", lang_name), value=st.session_state["rand_remaining"])
-        
-        st.write("---")
-        st.write(f"### {get_text('Output', lang_name)}")
-        import sys
-        if str(BASE_DIR) not in sys.path:
-            sys.path.insert(0, str(BASE_DIR))
-        from backend.earnings_velocity import compute_current_velocity, compute_target_velocity, forecast_status
-        from backend.goal_predictor import load_model, predict_single
-        
-        current_v = compute_current_velocity(earned, elapsed_h)
-        target_v = compute_target_velocity(target, earned, rem_h)
-        rule_status = forecast_status(current_v, target, earned, rem_h, elapsed_h)
-        
-        st.json({
-            "module": "earnings_velocity",
-            "current_velocity_per_hr": current_v,
-            "target_velocity_needed": target_v,
-            "rule_based_status": rule_status
-        })
-        
-        try:
-            model, encoder = load_model()
-            pct_earned = earned / max(target, 0.01)
-            target_hours = elapsed_h + rem_h
-            pct_time_used = elapsed_h / max(target_hours, 0.01)
-            ideal_v = target / max(target_hours, 0.01)
-            velocity_ratio = (current_v or 0) / max(ideal_v, 0.01)
+        if st.button(get_text("Generate Random Values", lang_name), key="btn_gen_rand"):
+            import random
+            st.session_state["rand_earned"] = round(random.uniform(50, 1500), 2)
+            st.session_state["rand_target"] = round(random.uniform(1000, 2000), 2)
+            st.session_state["rand_elapsed"] = round(random.uniform(1.0, 7.0), 2)
+            st.session_state["rand_remaining"] = round(random.uniform(1.0, 7.0), 2)
             
-            ml_pred = predict_single(
-                model, encoder,
-                pct_earned=pct_earned,
-                pct_time_used=pct_time_used,
-                velocity_ratio=velocity_ratio,
-                earnings_velocity=current_v or 0,
-                hours_remaining=rem_h,
-                experience_months=24,
-                rating=4.8
-            )
-            st.json({
-                "module": "goal_predictor_ml",
-                "ml_forecast": ml_pred["forecast"],
-                "confidence": ml_pred["confidence"],
-                "class_probabilities": ml_pred["probabilities"]
-            })
-        except Exception as e:
-            st.warning(f"{get_text('ML Model not trained or failed to load. Try running the backend pipeline first. Error:', lang_name)} {str(e)}")
-            
-    else:
-        cols = st.columns(3)
-        jerk = cols[0].number_input(get_text("Horizontal Jerk (m/s²)", lang_name), value=st.session_state["rand_jerk"])
-        audio_level = cols[1].number_input(get_text("Audio Level (dB)", lang_name), value=st.session_state["rand_audio"])
-        audio_class = cols[2].selectbox(get_text("Audio Class", lang_name), ["normal", "quiet", "loud", "argument"], index=["normal", "quiet", "loud", "argument"].index(st.session_state["rand_audio_class"]))
+            st.session_state["rand_jerk"] = round(random.uniform(1.0, 8.0), 2)
+            st.session_state["rand_audio"] = round(random.uniform(60.0, 110.0), 2)
+            st.session_state["rand_audio_class"] = random.choice(["normal", "quiet", "loud", "argument"])
+            st.session_state["did_generate"] = True
 
-        st.write("---")
-        st.write(f"### {get_text('Output', lang_name)}")
-        import sys
-        if str(BASE_DIR) not in sys.path:
-            sys.path.insert(0, str(BASE_DIR))
-        import numpy as np
-        
-        harsh_motion = (jerk > 4.0)
-        sustained_noise = (audio_level > 85) and (audio_class == "argument")
-        critical_conflict = harsh_motion and sustained_noise
-
-        flag = None
-        flag_type = "none"
-        if critical_conflict:
-            flag = "CRITICAL_CONFLICT"
-            flag_type = "conflict_moment"
-        elif harsh_motion:
-            flag = "HARSH_MOTION"
-            flag_type = "harsh_braking"
-        elif sustained_noise:
-            flag = "SUSTAINED_NOISE"
-            flag_type = "audio_spike"
-            
-        motion_score = round(float(np.clip((jerk - 4.0) / 4.0, 0.0, 1.0)), 2)
-        audio_score = round(float(np.clip((audio_level - 85.0) / 15.0, 0.0, 1.0)), 2)
-        combined_score = max(motion_score, audio_score)
-        
-        severity = "low"
-        if combined_score >= 0.7: severity = "high"
-        elif combined_score >= 0.4: severity = "medium"
-
-        explanation = "Normal Context"
-        if flag_type == "conflict_moment":
-             explanation = f"Combined signal: Harsh braking ({jerk} m/s^2) + sustained high audio ({int(audio_level)} dB)"
-        elif flag_type == "harsh_braking":
-             explanation = f"Harsh braking detected ({jerk} m/s^2) with audio level ({int(audio_level)} dB)"
-        elif flag_type == "audio_spike":
-             explanation = f"Sustained high audio detected ({int(audio_level)} dB) during {audio_class}"
-             
-        res = {
-            "module": "stress_model",
-            "stress_flag": flag,
-            "flag_type": flag_type,
-            "severity": severity,
-            "scores": {
-               "motion": motion_score,
-               "audio": audio_score,
-               "combined": combined_score
-            },
-            "explanation": explanation
-        }
-        st.json(res)
-        
-        if flag and severity in ["medium", "high"]:
-            from backend.driver_insights import generate_llm_insight, API_KEY, BASE_URL
-            from openai import OpenAI
-            client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-            try:
-                insight = generate_llm_insight(explanation, "2024-02-06 14:30:00", "Alex (Mock)", client)
-                st.write("#### LLM Driver Insight (API Output)")
-                st.success(f"Drive Pulse App says: '{insight}'")
+        if st.session_state.get("did_generate", False):
+            st.write(f"### {get_text('Simulated Input Values', lang_name)}")
+            if test_type == get_text("Earnings Velocity & Goal Predictor", lang_name):
+                cols = st.columns(4)
+                earned = cols[0].number_input(get_text("Earned (₹)", lang_name), value=st.session_state["rand_earned"])
+                target = cols[1].number_input(get_text("Target (₹)", lang_name), value=st.session_state["rand_target"])
+                elapsed_h = cols[2].number_input(get_text("Elapsed Hours", lang_name), value=st.session_state["rand_elapsed"])
+                rem_h = cols[3].number_input(get_text("Remaining Hours", lang_name), value=st.session_state["rand_remaining"])
                 
-                lang_name = st.session_state.get("selected_lang_name", "English")
-                lang_code = st.session_state.get("selected_lang_code", "en")
-                if st.button("Listen to Insight", key="voice_test_api", help=f"Listen in {lang_name}"):
-                    with st.spinner(f"Translating to {lang_name}..."):
-                        translated = translate_text(insight, lang_name)
-                        st.write(f"*{lang_name}: {translated}*")
-                        speak_text(translated, lang_code)
-            except Exception as e:
-                st.error("Could not fetch LLM insight. " + str(e))
+                st.write("---")
+                st.write(f"### {get_text('Output', lang_name)}")
+                import sys
+                if str(BASE_DIR) not in sys.path:
+                    sys.path.insert(0, str(BASE_DIR))
+                from backend.earnings_velocity import compute_current_velocity, compute_target_velocity, forecast_status
+                from backend.goal_predictor import load_model, predict_single
+                
+                current_v = compute_current_velocity(earned, elapsed_h)
+                target_v = compute_target_velocity(target, earned, rem_h)
+                rule_status = forecast_status(current_v, target, earned, rem_h, elapsed_h)
+                
+                st.json({
+                    "module": "earnings_velocity",
+                    "current_velocity_per_hr": current_v,
+                    "target_velocity_needed": target_v,
+                    "rule_based_status": rule_status
+                })
+                
+                try:
+                    model, encoder = load_model()
+                    pct_earned = earned / max(target, 0.01)
+                    target_hours = elapsed_h + rem_h
+                    pct_time_used = elapsed_h / max(target_hours, 0.01)
+                    ideal_v = target / max(target_hours, 0.01)
+                    velocity_ratio = (current_v or 0) / max(ideal_v, 0.01)
+                    
+                    ml_pred = predict_single(
+                        model, encoder,
+                        pct_earned=pct_earned,
+                        pct_time_used=pct_time_used,
+                        velocity_ratio=velocity_ratio,
+                        earnings_velocity=current_v or 0,
+                        hours_remaining=rem_h,
+                        experience_months=24,
+                        rating=4.8
+                    )
+                    st.json({
+                        "module": "goal_predictor_ml",
+                        "ml_forecast": ml_pred["forecast"],
+                        "confidence": ml_pred["confidence"],
+                        "class_probabilities": ml_pred["probabilities"]
+                    })
+                except Exception as e:
+                    st.warning(f"{get_text('ML Model not trained or failed to load. Error:', lang_name)} {str(e)}")
+                    
+            else:
+                cols = st.columns(3)
+                jerk = cols[0].number_input(get_text("Horizontal Jerk (m/s²)", lang_name), value=st.session_state["rand_jerk"])
+                audio_level = cols[1].number_input(get_text("Audio Level (dB)", lang_name), value=st.session_state["rand_audio"])
+                audio_class = cols[2].selectbox(get_text("Audio Class", lang_name), ["normal", "quiet", "loud", "argument"], index=["normal", "quiet", "loud", "argument"].index(st.session_state["rand_audio_class"]))
+
+                st.write("---")
+                st.write(f"### {get_text('Output', lang_name)}")
+                
+                harsh_motion = (jerk > 4.0)
+                sustained_noise = (audio_level > 85) and (audio_class == "argument")
+                critical_conflict = harsh_motion and sustained_noise
+
+                flag = None
+                flag_type = "none"
+                if critical_conflict:
+                    flag = "CRITICAL_CONFLICT"
+                    flag_type = "conflict_moment"
+                elif harsh_motion:
+                    flag = "HARSH_MOTION"
+                    flag_type = "harsh_braking"
+                elif sustained_noise:
+                    flag = "SUSTAINED_NOISE"
+                    flag_type = "audio_spike"
+                    
+                motion_score = round(float(np.clip((jerk - 4.0) / 4.0, 0.0, 1.0)), 2)
+                audio_score = round(float(np.clip((audio_level - 85.0) / 15.0, 0.0, 1.0)), 2)
+                combined_score = max(motion_score, audio_score)
+                
+                severity = "low"
+                if combined_score >= 0.7: severity = "high"
+                elif combined_score >= 0.4: severity = "medium"
+
+                explanation = "Normal Context"
+                if flag_type == "conflict_moment":
+                     explanation = f"Combined signal: Harsh braking ({jerk} m/s^2) + sustained high audio ({int(audio_level)} dB)"
+                elif flag_type == "harsh_braking":
+                     explanation = f"Harsh braking detected ({jerk} m/s^2) with audio level ({int(audio_level)} dB)"
+                elif flag_type == "audio_spike":
+                     explanation = f"Sustained high audio detected ({int(audio_level)} dB) during {audio_class}"
+                     
+                res = {
+                    "module": "stress_model",
+                    "stress_flag": flag,
+                    "flag_type": flag_type,
+                    "severity": severity,
+                    "scores": {"motion": motion_score, "audio": audio_score, "combined": combined_score},
+                    "explanation": explanation
+                }
+                st.json(res)
+                
+                if flag and severity in ["medium", "high"]:
+                    from backend.driver_insights import generate_llm_insight, API_KEY, BASE_URL
+                    from openai import OpenAI
+                    client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+                    try:
+                        insight = generate_llm_insight(explanation, "2024-02-06 14:30:00", "Alex (Mock)", client)
+                        st.write("#### LLM Driver Insight (API Output)")
+                        st.success(f"Drive Pulse App says: '{insight}'")
+                        
+                        lang_name = st.session_state.get("selected_lang_name", "English")
+                        lang_code = st.session_state.get("selected_lang_code", "en")
+                        if st.button(get_text("Listen to Insight", lang_name), key="voice_test_api"):
+                            translated = translate_text(insight, lang_name)
+                            speak_text(translated, lang_code)
+                    except Exception as e:
+                        st.error("Could not fetch LLM insight. " + str(e))
+                else:
+                    st.info("Severity is low, no LLM insight triggered.")
         else:
-            st.info("severity is low, no LLM insight triggered.")
+            st.info(get_text("Click 'Generate Random Values' above to populate the inputs.", lang_name))
 
+    else:
+        # Batch Processing
+        st.markdown(f"#### {get_text('Step 1: Input Analysis Data', lang_name)}")
+        col_inp1, col_sep, col_inp2 = st.columns([10, 1, 10])
+        
+        with col_inp1:
+            st.write(f"**{get_text('Option A: Simulated Demo', lang_name)}**")
+            demo_size = st.select_slider(get_text("Inference Window (Rows):", lang_name), options=[5, 10, 15, 30, 50, 100], value=15)
+            if st.button(get_text("Search & Generate Analysis", lang_name)):
+                try:
+                    acc_path = os.path.join(BASE_DIR, "data", "sensor_data", "accelerometer_data.csv")
+                    aud_path = os.path.join(BASE_DIR, "data", "sensor_data", "audio_intensity_data.csv")
+                    if os.path.exists(acc_path) and os.path.exists(aud_path):
+                        df_acc = pd.read_csv(acc_path)
+                        df_aud = pd.read_csv(aud_path)
+                        df_acc['timestamp'] = pd.to_datetime(df_acc['timestamp'], errors='coerce')
+                        df_aud['timestamp'] = pd.to_datetime(df_aud['timestamp'], errors='coerce')
+                        
+                        full_df = pd.merge_asof(
+                            df_acc.sort_values('timestamp'), 
+                            df_aud.sort_values('timestamp'), 
+                            on='timestamp', direction='nearest', tolerance=pd.Timedelta(seconds=30),
+                            suffixes=('', '_aud')
+                        )
+                        # Official Sync: Instead of manual calculation (find flags), use the official flagged moments
+                        flags_df = load_flagged_moments()
+                        
+                        if not flags_df.empty:
+                            # Ensure both are tz-naive for subtraction
+                            first_flag_time = pd.to_datetime(flags_df.iloc[0]['timestamp'], dayfirst=True)
+                            if first_flag_time.tzinfo is not None:
+                                first_flag_time = first_flag_time.tz_localize(None)
+                            
+                            # Ensure full_df timestamp is also naive
+                            raw_ts = full_df['timestamp'].dt.tz_localize(None) if full_df['timestamp'].dt.tz is not None else full_df['timestamp']
+                            
+                            # Find row index closest to this official flag
+                            timedeltas = (raw_ts - first_flag_time).abs()
+                            start_idx = timedeltas.idxmin()
+                        else:
+                            start_idx = 0
+                        
+                        # Apply pre-incident context shift
+                        start_idx = max(0, start_idx - 3)
+                        
+                        st.session_state["demo_batch_df"] = full_df.iloc[start_idx : start_idx + demo_size].copy()
+                    else:
+                        st.error("Sample data not found.")
+                except Exception as e:
+                    st.exception(e)
 
+        with col_sep:
+            # Vertical line trick
+            st.markdown("<div style='border-left: 1px solid #ddd; height: 180px; margin: auto; width: 1px;'></div>", unsafe_allow_html=True)
 
+        with col_inp2:
+            st.write(f"**{get_text('Option B: Custom CSV Upload', lang_name)}**")
+            uploaded_files = st.file_uploader(get_text("Upload Sensor Data", lang_name), type=["csv"], key="batch_upload_v2", accept_multiple_files=True)
+            if uploaded_files:
+                try:
+                    dfs = []
+                    for f in uploaded_files:
+                         df_f = pd.read_csv(f)
+                         if 'timestamp' in df_f.columns:
+                             df_f['timestamp'] = pd.to_datetime(df_f['timestamp'], errors='coerce')
+                         dfs.append(df_f)
+                    if len(dfs) > 1:
+                        final_df = dfs[0]
+                        for i in range(1, len(dfs)):
+                            if 'timestamp' in final_df.columns and 'timestamp' in dfs[i].columns:
+                                cols_to_use = dfs[i].columns.difference(final_df.columns).tolist() + ['timestamp']
+                                final_df = pd.merge_asof(final_df.sort_values('timestamp'), dfs[i][cols_to_use].sort_values('timestamp'), on='timestamp', direction='nearest', tolerance=pd.Timedelta(seconds=30))
+                            else:
+                                final_df = pd.concat([final_df, dfs[i]], axis=1)
+                        st.session_state["demo_batch_df"] = final_df
+                        st.success(get_text("Custom files merged successfully.", lang_name))
+                    else:
+                        st.session_state["demo_batch_df"] = dfs[0]
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+        # The Output Section – Always at the bottom
+        batch_df = st.session_state.get("demo_batch_df", None)
+        if batch_df is not None:
+            st.write("---")
+            st.markdown(f"### {get_text('Batch Inference Output', lang_name)}")
+            
+            try:
+                has_accel = all(c in batch_df.columns for c in ['accel_x', 'accel_y'])
+                has_audio = 'audio_level' in batch_df.columns
+                
+                if has_accel or has_audio:
+                    with st.spinner(get_text("Analyzing telemetry...", lang_name)):
+                        # Import production logic directly from backend
+                        import sys
+                        if str(BASE_DIR) not in sys.path:
+                            sys.path.insert(0, str(BASE_DIR))
+                        from backend.stress_model import compute_motion_metrics, compute_audio_metrics, fuse_sensors, apply_stress_rules
+
+                        # Safety: Ensure required columns and formatting for the backend model
+                        if 'trip_id' not in batch_df.columns: batch_df['trip_id'] = 'test_trip'
+                        if 'driver_id' not in batch_df.columns: batch_df['driver_id'] = 'test_driver'
+                        if 'audio_class' not in batch_df.columns: batch_df['audio_class'] = 'quiet'
+
+                        # 1. Compute Base Metrics (Production Pipeline)
+                        processed_acc = compute_motion_metrics(batch_df) if has_accel else batch_df
+                        processed_aud = compute_audio_metrics(batch_df) if has_audio else batch_df
+                        
+                        # Use production names for fuser
+                        if 'Audio_Rolling_15s' not in processed_aud.columns and 'Audio_Rolling' in processed_aud.columns:
+                            processed_aud['Audio_Rolling_15s'] = processed_aud['Audio_Rolling']
+                        
+                        # Ensure backend-compatible structure
+                        if not has_accel:
+                            processed_acc['Horizontal_Jerk'] = 0.0
+                            processed_acc['Vertical_Jerk'] = 0.0
+                        if 'Audio_Rolling_15s' not in processed_aud.columns:
+                            processed_aud['Audio_Rolling_15s'] = 0.0
+                        
+                        # 2. Fuse & Apply Official Rules
+                        # fuse_sensors expects specific structure
+                        fused_df = fuse_sensors(processed_acc, processed_aud)
+                        
+                        # Crucial: the model checks audio_class
+                        if 'audio_class' not in fused_df.columns:
+                            fused_df['audio_class'] = 'quiet'
+                        
+                        # 3. Apply stress rules from backend
+                        flagged_results = apply_stress_rules(fused_df)
+                        
+                        # 3. Calculate scores for the visualization (Timeline)
+                        # We calculate these on the fused_df so we can plot the whole timeline
+                        fused_df["motion_score"] = np.clip((fused_df["Horizontal_Jerk"] - 4.0) / 4.0, 0.0, 1.0)
+                        # Mask bumps
+                        fused_df.loc[fused_df["Vertical_Jerk"] > 2.0, "motion_score"] = 0.0
+                        
+                        fused_df["audio_score"] = np.clip((fused_df["Audio_Rolling_15s"] - 85.0) / 15.0, 0.0, 1.0)
+                        fused_df["combined_score"] = np.maximum(fused_df["motion_score"], fused_df["audio_score"])
+                        
+                        # 4. Display Metrics
+                        m1, m2 = st.columns(2)
+                        m1.metric(get_text("Analytical Datapoints", lang_name), len(fused_df))
+                        m2.metric(get_text("Flagged Moments", lang_name), len(flagged_results), delta=len(flagged_results) if len(flagged_results)>0 else None)
+                        
+                        st.write(f"#### {get_text('Risk Heatmap Timeline', lang_name)}")
+                        st.line_chart(fused_df[['motion_score', 'audio_score', 'combined_score']])
+                        
+                        if not flagged_results.empty:
+                            st.write(f"#### {get_text('Detected High-Risk Moments', lang_name)}")
+                            # Enrich flagged_results with scores for the dataframe display
+                            flagged_results["combined_score"] = np.maximum(
+                                np.clip((flagged_results["Horizontal_Jerk"] - 4.0) / 4.0, 0, 1),
+                                np.clip((flagged_results["Audio_Rolling_15s"] - 85.0) / 15.0, 0, 1)
+                            )
+                            st.dataframe(flagged_results.sort_values('combined_score', ascending=False).head(15), use_container_width=True)
+                        else:
+                            st.info(get_text("No high-risk moments detected in this specific window.", lang_name))
+                else:
+                    st.error("Data missing required sensor columns.")
+            except Exception as e:
+                import traceback
+                st.error(f"Inference Error: {str(e)}")
+                st.code(traceback.format_exc())
 
 def speak_text(text: str, lang_code: str):
     """Generates and plays audio for the given text and language."""
