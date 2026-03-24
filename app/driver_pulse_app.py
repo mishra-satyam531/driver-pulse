@@ -1060,9 +1060,11 @@ def render_test_api() -> None:
             with st.container(border=True):
                 st.markdown(f"**Option 1: {get_text('Simulated Demo', lang_name)}**")
                 st.write(get_text("Center the analysis window on the first pre-computed high-risk incident.", lang_name))
+                demo_rows = st.selectbox(get_text("Select Data Window (Rows):", lang_name), [5, 10, 15], index=2)
                 if st.button(get_text("Launch Simulated Demo", lang_name), type="primary", use_container_width=True):
                     st.session_state['test_run_trigger'] = True
                     st.session_state['test_use_demo'] = True
+                    st.session_state['test_demo_rows'] = demo_rows
 
         with opt_col2:
             with st.container(border=True):
@@ -1097,11 +1099,12 @@ def render_test_api() -> None:
                         
                         idx_match = (raw_acc_naive - target_ts_naive).abs().idxmin()
                         start_idx = max(0, idx_match - 3)
-                        batch_df = raw_acc.iloc[start_idx:start_idx+15].copy()
+                        num_rows = st.session_state.get('test_demo_rows', 15)
+                        batch_df = raw_acc.iloc[start_idx:start_idx+num_rows].copy()
                         
                         # Sync with audio
                         raw_aud = pd.read_csv(DATA_DIR / "sensor_data" / "audio_intensity_data.csv")
-                        batch_df['audio_level'] = raw_aud['audio_level'].iloc[start_idx:start_idx+15].values
+                        batch_df['audio_level'] = raw_aud['audio_level'].iloc[start_idx:start_idx+num_rows].values
                         batch_df['audio_class'] = "argument" if moments.iloc[0]['flag_type'] == 'conflict_moment' else "loud"
                     else:
                         st.warning(get_text("No historical stress moments found for demo simulation.", lang_name))
@@ -1134,25 +1137,32 @@ def render_test_api() -> None:
                     motion_df = stress_model.compute_motion_metrics(batch_df[acc_cols])
                     audio_df = stress_model.compute_audio_metrics(batch_df[aud_cols])
                     fused_df = stress_model.fuse_sensors(motion_df, audio_df)
-                    final_output = stress_model.apply_stress_rules(fused_df)
+                    
+                    # Manually identify flags to maintain full window for metrics/charts
+                    results_df = fused_df.copy()
+                    harsh_motion = (results_df["Horizontal_Jerk"] > 4.0) & (results_df["Vertical_Jerk"] < 2.0)
+                    sustained_noise = (results_df["Audio_Rolling_15s"] > 85) & (results_df["audio_class"] == "argument")
+                    critical_conflict = harsh_motion & sustained_noise
+                    conditions = [critical_conflict, harsh_motion, sustained_noise]
+                    choices = ["CRITICAL_CONFLICT", "HARSH_MOTION", "SUSTAINED_NOISE"]
+                    results_df["Stress_Flag"] = np.select(conditions, choices, default="none")
                     
                     # UI Results
                     st.markdown(f"#### 📈 {get_text('Batch Analysis Results', lang_name)}")
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric(get_text("Analytical Datapoints", lang_name), len(final_output))
-                    flags_found = (final_output['Stress_Flag'] != 'none').sum()
+                    c1, c2 = st.columns(2)
+                    c1.metric(get_text("Analytical Datapoints", lang_name), len(results_df))
+                    flags_found = (results_df['Stress_Flag'] != 'none').sum()
                     c2.metric(get_text("Flagged Moments", lang_name), flags_found)
-                    c3.metric(get_text("Risk Confidence", lang_name), "98.4%")
                     
                     st.write("")
-                    plot_df = final_output.copy()
+                    plot_df = results_df.copy()
                     plot_df['Time'] = range(len(plot_df))
                     fig = px.line(plot_df, x='Time', y='Horizontal_Jerk', title=get_text("Risk Heatmap Timeline", lang_name), template="plotly_white")
                     fig.add_hline(y=4.0, line_dash="dot", line_color="red", annotation_text="Harsh Threshold")
                     st.plotly_chart(fig, use_container_width=True)
                     
                     with st.expander(get_text("Show Processed Output", lang_name)):
-                        st.dataframe(final_output.drop(columns=['trip_id', 'driver_id']))
+                        st.dataframe(results_df.drop(columns=['trip_id', 'driver_id']))
                     
                 # Clean up trigger
                 if 'test_run_trigger' in st.session_state:
