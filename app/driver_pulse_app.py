@@ -42,6 +42,9 @@ def load_flagged_moments() -> pd.DataFrame:
         response.raise_for_status()
         df = pd.DataFrame(response.json())
         
+        if df.empty or "timestamp" not in df.columns:
+            return df
+
         # Keep all existing data cleaning logic exactly as it was
         df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
         if "combined_score" in df.columns:
@@ -75,8 +78,11 @@ def load_earnings_velocity() -> pd.DataFrame:
         response.raise_for_status()
         df = pd.DataFrame(response.json())
         
+        if df.empty or "timestamp" not in df.columns:
+            # If we were expected to return a DataFrame with certain columns, we should be careful
+            return df
+
         # Keep all existing data cleaning logic exactly as it was
-        df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
         df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True, errors="coerce")
         
         import numpy as np
@@ -148,18 +154,59 @@ def style_severity(value: str) -> str:
     color = color_map.get(str(value).lower(), "#e5e7eb")
     return f"background-color: {color}; color: white; font-weight: 600;"
 
+# Standardized UI Translations to avoid API calls for common elements
+PRE_TRANSLATED = {
+    "hi": {
+        "Fleet Overview & Trip Summary": "बेड़े का अवलोकन और यात्रा सारांश",
+        "Driver Filter": "ड्राइवर फ़िल्टर",
+        "Total Trips": "कुल यात्राएं",
+        "Total Stress Events": "कुल तनावपूर्ण क्षण",
+        "Critical (High) Events": "गंभीर (उच्च) घटनाएं",
+        "Trip Stress Analysis": "यात्रा तनाव विश्लेषण",
+        "Detailed Trip Log (Raw Data)": "विस्तृत यात्रा लॉग (कच्चा डेटा)",
+        "Incident Reports": "घटना की रिपोर्ट",
+        "Driver": "ड्राइवर",
+        "Trip": "यात्रा",
+        "Incident Map Location": "घटना मानचित्र स्थान",
+        "Trip Incident Stream": "यात्रा घटना स्ट्रीम",
+        "Total Earnings Today": "आज की कुल कमाई",
+        "Current Velocity": "वर्तमान गति",
+        "Goal Progress": "लक्ष्य प्रगति",
+        "Projected Final": "अनुमानित फाइनल",
+        "Goal Achievement Forecast": "लक्ष्य उपलब्धि पूर्वानुमान",
+        "Earnings Over Time": "समय के साथ कमाई",
+        "Hourly Breakdown": "प्रति घंटा विवरण",
+        "System Architecture & Data Flow": "सिस्टम आर्किटेक्चर और डेटा फ्लो",
+        "Stress Detection Engine": "तनाव पहचान इंजन",
+        "Earnings Velocity Model": "कमाई वेग मॉडल",
+        "Flag Aggregation & Scoring": "ध्वज एकत्रीकरण और स्कोरिंग",
+        "All Drivers": "सभी ड्राइवर",
+        "No flagged moments available yet.": "अभी तक कोई ध्वजांकित क्षण उपलब्ध नहीं हैं।",
+        "Trip Summary": "यात्रा सारांश",
+        "Flagged Moments": "चिह्नित क्षण",
+        "Earnings Velocity": "कमाई का वेग",
+        "Test API": "टेस्ट API",
+        "System Architecture": "सिस्टम आर्किटेक्चर"
+    }
+}
+
 @st.cache_data
 def get_text(text: str, target_lang_name: str) -> str:
-    """Uses Google Translate for UI elements, cached for performance."""
-    if target_lang_name == "English":
+    """Uses a local dictionary first, then falls back to Google Translate for UI elements."""
+    if not target_lang_name or target_lang_name == "English":
         return text
     
-    indian_langs = {
+    lang_map = {
         "Hindi (हिन्दी)": "hi", "Bengali (বাংলা)": "bn", "Marathi (मराठी)": "mr",
         "Telugu (తెలుగు)": "te", "Tamil (தமிழ்)": "ta", "Gujarati (ગુજરાતી)": "gu",
         "Kannada (ಕನ್ನಡ)": "kn", "Malayalam (മലയാളം)": "ml"
     }
-    target_code = indian_langs.get(target_lang_name, "en")
+    target_code = lang_map.get(target_lang_name, "en")
+    
+    # Check local dictionary for ultra-fast response
+    if target_code in PRE_TRANSLATED and text in PRE_TRANSLATED[target_code]:
+        return PRE_TRANSLATED[target_code][text]
+
     try:
         translated = GoogleTranslator(source='auto', target=target_code).translate(text)
         return translated if translated else text
@@ -962,6 +1009,11 @@ def render_test_api() -> None:
                     import sys
                     if str(BASE_DIR) not in sys.path:
                         sys.path.insert(0, str(BASE_DIR))
+                    from importlib import reload
+                    import backend.stress_model as stress_model
+                    reload(stress_model)
+                    import backend.earnings_velocity as earnings_velocity
+                    reload(earnings_velocity)
                     from backend.earnings_velocity import compute_current_velocity, compute_target_velocity, forecast_status
                     
                     current_v = compute_current_velocity(earned, elapsed_h)
@@ -1111,13 +1163,46 @@ def render_test_api() -> None:
                         st.session_state['test_run_trigger'] = False
                         return
                 else:
-                    dfs = [pd.read_csv(f) for f in st.session_state['uploaded_files']]
-                    batch_df = pd.concat(dfs, axis=1) if len(dfs) > 1 else dfs[0]
+                    dfs = []
+                    for f in st.session_state['uploaded_files']:
+                        try:
+                            f.seek(0)
+                            df_temp = pd.read_csv(f)
+                            if df_temp is not None and not df_temp.empty:
+                                dfs.append(df_temp)
+                        except Exception:
+                            # Skip malformed or empty files
+                            continue
+                        
+                    if not dfs:
+                        st.error(get_text("No valid data found in uploaded files.", lang_name))
+                        st.session_state['test_run_trigger'] = False
+                        return
+                        
+                    if len(dfs) > 1:
+                        # Safer merging on common keys
+                        batch_df = dfs[0]
+                        for other_df in dfs[1:]:
+                            common_cols = list(set(batch_df.columns) & set(other_df.columns))
+                            if common_cols and 'timestamp' in common_cols:
+                                batch_df = pd.merge(batch_df, other_df, on=common_cols, how='outer')
+                            else:
+                                batch_df = pd.concat([batch_df.reset_index(drop=True), other_df.reset_index(drop=True)], axis=1)
+                    else:
+                        batch_df = dfs[0]
 
                 if not batch_df.empty:
+                    # Clean columns and deduplicate
+                    batch_df = batch_df.loc[:, ~batch_df.columns.duplicated()].copy()
+                    
                     # Data Prep & Normalization
                     if 'timestamp' in batch_df.columns:
-                        batch_df['timestamp'] = pd.to_datetime(batch_df['timestamp'])
+                        # Normalize to UTC
+                        batch_df['timestamp'] = pd.to_datetime(batch_df['timestamp'], utc=True, errors='coerce')
+                        # CRITICAL: Remove NaT which crashes time-based rolling windows
+                        batch_df = batch_df.dropna(subset=['timestamp'])
+                        # REQUIRED for merge_asof: GLOBAL SORT by timestamp
+                        batch_df = batch_df.sort_values('timestamp').reset_index(drop=True)
                     
                     # Fill missing columns for backend compatibility
                     for col in ['trip_id', 'driver_id']:

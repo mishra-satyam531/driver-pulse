@@ -27,10 +27,16 @@ def load_sensor_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     try:
         accel_df = pd.read_csv(ACCEL_PATH)
         audio_df = pd.read_csv(AUDIO_PATH)
+        print(f"DEBUG: Accel columns: {accel_df.columns.tolist()}")
+        print(f"DEBUG: Audio columns: {audio_df.columns.tolist()}")
     except Exception as e:
         print(f"Error reading sensor CSV files: {e}")
         raise
-
+    
+    # Check for required columns
+    if 'trip_id' not in accel_df.columns or 'trip_id' not in audio_df.columns:
+        print(f"Error: 'trip_id' column missing. Accel columns: {accel_df.columns.tolist()}")
+    
     # DATA CLEANING: Accelerometer - Clip to physically realistic range [-20, 20] m/s²
     accel_cols = ['accel_x', 'accel_y', 'accel_z']
     for col in accel_cols:
@@ -39,9 +45,10 @@ def load_sensor_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     print("DATA CLEANING: Accelerometer data clipped to [-20, 20] m/s² to remove physical anomalies.")
     
     # DATA CLEANING: Accelerometer - Interpolate missing values
-    accel_df[accel_cols] = accel_df.groupby('trip_id')[accel_cols].transform(
-        lambda x: x.interpolate(method='linear', limit_direction='both')
-    )
+    if 'trip_id' in accel_df.columns:
+        accel_df[accel_cols] = accel_df.groupby('trip_id')[accel_cols].transform(
+            lambda x: x.interpolate(method='linear', limit_direction='both')
+        )
     print("DATA CLEANING: Accelerometer data interpolated to fill missing values.")
 
     accel_df["timestamp"] = pd.to_datetime(
@@ -83,30 +90,53 @@ def compute_audio_metrics(audio_df: pd.DataFrame) -> pd.DataFrame:
     df["audio_level_clipped"] = df["audio_level"].clip(lower=30, upper=120)
     print("DATA CLEANING: Audio levels clipped to [30, 120] dB range to remove noise floor and sensor outliers")
 
-    # Use groupby + time-based rolling on a MultiIndex, then align by position.
-    rolled = (
-        df.set_index("timestamp")
-        .groupby("trip_id")["audio_level_clipped"]
-        .rolling("15s")
-        .mean()
-    )
-    df["Audio_Rolling_15s"] = rolled.values
+    # CRITICAL: Clean and ensure everything is timezone-aware and non-null
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    df = df.dropna(subset=["timestamp"]).copy()
+    
+    # Use a robust apply-based rolling window that handles internal sorting
+    # This avoids the dreaded "monotonic index" errors by ensuring each group
+    # is perfectly sorted and unique before the time-based rolling window is applied.
+    def _rolling_mean_safe(group):
+        # Sort internal group for time-offset window requirement
+        g = group.sort_values("timestamp").drop_duplicates(subset=["timestamp"])
+        return g.set_index("timestamp")["audio_level_clipped"].rolling("15s").mean()
+
+    # Apply per trip and merge results
+    # Using group_keys=True ensures the trip_id is a level in the result's index.
+    rolled_res = df.groupby("trip_id", group_keys=True).apply(_rolling_mean_safe)
+    
+    # alignment check: ensure trip_id is a column for joining
+    # Depending on pandas version, rolled_res might have trip_id already.
+    # We'll reset all levels to be sure.
+    rolled_df = rolled_res.reset_index()
+    
+    # Rename the column if it's named after the original series
+    if "audio_level_clipped" in rolled_df.columns:
+        rolled_df = rolled_df.rename(columns={"audio_level_clipped": "Audio_Rolling_15s"})
+        
+    df = pd.merge(df, rolled_df, on=["trip_id", "timestamp"], how="left")
+    
+    # Fill any gaps created by drop_duplicates with forward fill
+    df["Audio_Rolling_15s"] = df.groupby("trip_id")["Audio_Rolling_15s"].ffill()
 
     return df
 
 
 def fuse_sensors(accel_df: pd.DataFrame, audio_df: pd.DataFrame) -> pd.DataFrame:
-    accel_sorted = accel_df.sort_values(["trip_id", "timestamp"]).reset_index(drop=True)
-    audio_sorted = audio_df.sort_values(["trip_id", "timestamp"]).reset_index(drop=True)
+    # merge_asof REQUIREMENT: Both dataframes MUST be sorted by 'on' column (timestamp)
+    # We ensure this globally to satisfy pandas.
+    accel_sorted = accel_df.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+    audio_sorted = audio_df.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
-    audio_cols = [
-        "driver_id",
-        "timestamp",
-        "Audio_Rolling_15s",
-        "audio_class",
-    ]
-    audio_subset = audio_sorted[audio_cols]
+    audio_cols = ["driver_id", "timestamp", "Audio_Rolling_15s", "audio_class"]
+    existing_audio_cols = [c for c in audio_cols if c in audio_sorted.columns]
+    audio_subset = audio_sorted[existing_audio_cols]
 
+    # Debug: verify monotonicity
+    if not accel_sorted["timestamp"].is_monotonic_increasing:
+        print("CRITICAL: accel_sorted timestamp is STILL NOT MONOTONIC!")
+        
     fused = pd.merge_asof(
         accel_sorted,
         audio_subset,
@@ -119,8 +149,17 @@ def fuse_sensors(accel_df: pd.DataFrame, audio_df: pd.DataFrame) -> pd.DataFrame
 
 
 def apply_stress_rules(fused_df: pd.DataFrame) -> pd.DataFrame:
+    if fused_df.empty:
+        return fused_df
+        
     df = fused_df.copy()
-
+    
+    # Check if necessary columns for rules exist
+    required_cols = ["Horizontal_Jerk", "Vertical_Jerk", "Audio_Rolling_15s", "audio_class"]
+    for col in required_cols:
+        if col not in df.columns:
+            df[col] = 0.0 if col != "audio_class" else "normal"
+            
     harsh_motion = (df["Horizontal_Jerk"] > 4.0) & (df["Vertical_Jerk"] < 2.0)
     sustained_noise = (df["Audio_Rolling_15s"] > 85) & (df["audio_class"] == "argument")
     critical_conflict = harsh_motion & sustained_noise
